@@ -95,6 +95,23 @@ export class RoyalBluffEngine {
     return true;
   }
 
+  public removePlayer(id: string): boolean {
+    const idx = this.state.players.findIndex(p => p.id === id);
+    if (idx === -1) return false;
+    const p = this.state.players[idx];
+    this.state.players.splice(idx, 1);
+    logMessage(this.state, `${p.name} a quitté le salon !`, 'system');
+
+    // If game was running, eliminate player cards and check victory
+    if (this.state.phase !== 'LOBBY' && this.state.players.length > 0) {
+      if (this.state.activePlayerIndex >= this.state.players.length) {
+        this.state.activePlayerIndex = 0;
+      }
+      this.advanceTurn();
+    }
+    return true;
+  }
+
   public resetToLobby(): void {
     this.state.phase = 'LOBBY';
     this.state.players.forEach(p => {
@@ -269,7 +286,7 @@ export class RoyalBluffEngine {
 
   public submitBlockDecision(playerId: string, blockCharacter: Character | null): boolean {
     if (this.state.phase !== 'BLOCK_WINDOW' || !this.state.pendingAction) return false;
-    const actor = this.state.players.find(p => p.id === this.state.pendingAction.playerUid)!;
+    const actor = this.state.players.find(p => p.id === this.state.pendingAction!.playerUid)!;
     const decider = this.state.players.find(p => p.id === playerId);
     if (!decider || decider.isEliminated) return false;
 
@@ -305,7 +322,7 @@ export class RoyalBluffEngine {
 
   public submitBlockChallengeDecision(playerId: string, challenge: boolean): boolean {
     if (this.state.phase !== 'CHALLENGE_BLOCK_WINDOW' || !this.state.pendingBlock || !this.state.pendingAction) return false;
-    const blocker = this.state.players.find(p => p.id === this.state.pendingBlock.playerUid)!;
+    const blocker = this.state.players.find(p => p.id === this.state.pendingBlock!.playerUid)!;
     if (playerId === blocker.id) return false;
 
     const decider = this.state.players.find(p => p.id === playerId);
