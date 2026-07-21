@@ -3,13 +3,14 @@ import { useGame } from "./hooks/useGame";
 import { Lobby } from "./components/game/Lobby";
 import { GamePanel } from "./components/game/GamePanel";
 import { LogConsole } from "./components/game/LogConsole";
-import { Swords, MessageSquare, Send } from "lucide-react";
+import { Swords, MessageSquare, Send, FileText, X } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 export default function App() {
   const game = useGame();
   const [chatInput, setChatInput] = useState("");
   const [copied, setCopied] = useState(false);
+  const [showRules, setShowRules] = useState(false);
 
   const {
     myPeerId,
@@ -87,25 +88,36 @@ export default function App() {
             ROYAL BLUFF
           </span>
         </div>
-        {gameState && gameState.phase !== 'LOBBY' && (
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-zinc-400 font-mono bg-zinc-900 px-3 py-1.5 rounded-full border border-zinc-800">
-              Salon : <span className="text-amber-400 font-bold">{hostPeerId}</span>
-            </span>
-            <button
-              onClick={handleCopy}
-              className="text-xs px-2.5 py-1.5 bg-zinc-850 hover:bg-zinc-800 text-zinc-300 font-bold rounded-xl transition-all"
-            >
-              {copied ? "Copié !" : "Copier le code"}
-            </button>
-            <button
-              onClick={disconnect}
-              className="text-xs px-2.5 py-1.5 bg-rose-950/20 hover:bg-rose-900/20 text-rose-400 border border-rose-900/30 rounded-xl transition-all"
-            >
-              Quitter
-            </button>
-          </div>
-        )}
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setShowRules(true)}
+            className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-zinc-100 rounded-full border border-zinc-800 font-bold transition-all"
+            title="Règles du jeu"
+          >
+            <FileText className="w-3.5 h-3.5" />
+            <span>Règles</span>
+          </button>
+
+          {gameState && gameState.phase !== 'LOBBY' && (
+            <>
+              <span className="text-xs text-zinc-400 font-mono bg-zinc-900 px-3 py-1.5 rounded-full border border-zinc-800">
+                Salon : <span className="text-amber-400 font-bold">{hostPeerId}</span>
+              </span>
+              <button
+                onClick={handleCopy}
+                className="text-xs px-2.5 py-1.5 bg-zinc-850 hover:bg-zinc-800 text-zinc-300 font-bold rounded-xl transition-all"
+              >
+                {copied ? "Copié !" : "Copier le code"}
+              </button>
+              <button
+                onClick={disconnect}
+                className="text-xs px-2.5 py-1.5 bg-rose-950/20 hover:bg-rose-900/20 text-rose-400 border border-rose-900/30 rounded-xl transition-all"
+              >
+                Quitter
+              </button>
+            </>
+          )}
+        </div>
       </header>
 
       <main className="flex-1 w-full max-w-7xl mx-auto">
@@ -217,6 +229,76 @@ export default function App() {
           <span>Dépôt GitHub</span>
         </a>
       </footer>
+
+      {/* Rules Modal */}
+      {showRules && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/90 backdrop-blur-md transition-all">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 w-full max-w-2xl text-zinc-100 shadow-2xl relative max-h-[90vh] overflow-y-auto font-sans">
+            <button
+              onClick={() => setShowRules(false)}
+              className="absolute top-4 right-4 text-zinc-400 hover:text-zinc-200 transition-colors"
+              title="Fermer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <h2 className="text-2xl font-black bg-gradient-to-r from-amber-400 to-yellow-600 bg-clip-text text-transparent mb-4 flex items-center gap-2 border-b border-zinc-800 pb-2">
+              👑 Règles : Royal Bluff
+            </h2>
+
+            <div className="space-y-4 text-sm text-zinc-300 leading-relaxed">
+              <section>
+                <h3 className="font-bold text-amber-500 uppercase tracking-wide text-xs mb-1">Objectif</h3>
+                <p>
+                  Éliminer l'influence de tous vos adversaires. Chaque joueur commence avec deux cartes d'influence cachées (personnages) et 2 pièces d'or. Si vous perdez vos deux influences, vous êtes éliminé. Le dernier en vie gagne.
+                </p>
+              </section>
+
+              <section>
+                <h3 className="font-bold text-amber-500 uppercase tracking-wide text-xs mb-1">Actions Générales</h3>
+                <p className="mb-2">À votre tour, vous pouvez effectuer une action. Aucune carte n'est requise pour ces actions :</p>
+                <ul className="list-disc list-inside pl-2 space-y-1">
+                  <li><strong className="text-zinc-100">Revenu :</strong> Prenez 1 pièce d'or de la banque (action inciblable, imblocable).</li>
+                  <li><strong className="text-zinc-100">Aide Extérieure :</strong> Prenez 2 pièces d'or. (Peut être bloqué par le <em>Duc/Duchesse</em>).</li>
+                  <li><strong className="text-zinc-100">Coup d'État :</strong> Payez 7 pièces d'or pour forcer un joueur ciblé à perdre une influence de son choix (imblocable, incontestable).</li>
+                </ul>
+              </section>
+
+              <section>
+                <h3 className="font-bold text-amber-500 uppercase tracking-wide text-xs mb-1">Actions de Rôles (Bluff autorisé !)</h3>
+                <p className="mb-2">Vous pouvez prétendre posséder n'importe quel rôle pour effectuer son action associée :</p>
+                <ul className="list-disc list-inside pl-2 space-y-1.5">
+                  <li>
+                    <strong className="text-amber-300">Duchesse (Taxe) :</strong> Prenez 3 pièces d'or à la banque.
+                  </li>
+                  <li>
+                    <strong className="text-amber-300">Assassin (Assassinat) :</strong> Payez 3 pièces d'or pour forcer un joueur ciblé à perdre une influence. (Peut être bloqué par la <em>Comtesse</em>).
+                  </li>
+                  <li>
+                    <strong className="text-amber-300">Capitaine (Vol) :</strong> Volez 2 pièces d'or à un autre joueur. (Peut être bloqué par un <em>Capitaine</em> ou un <em>Ambassadeur</em>).
+                  </li>
+                  <li>
+                    <strong className="text-amber-300">Ambassadeur (Échange) :</strong> Piochez 2 cartes du deck, mélangez-les avec vos cartes d'influence cachées, et remettez-en 2 sous le deck.
+                  </li>
+                </ul>
+              </section>
+
+              <section>
+                <h3 className="font-bold text-amber-500 uppercase tracking-wide text-xs mb-1">Contestation & Blocage</h3>
+                <p className="mb-2">Chaque action (sauf Revenu et Coup d'État) peut être contestée ou bloquée par les autres joueurs :</p>
+                <ul className="list-disc list-inside pl-2 space-y-1.5">
+                  <li>
+                    <strong className="text-zinc-100">La Contestation :</strong> N'importe quel joueur peut accuser l'auteur d'une action ou d'un blocage de mentir sur sa carte. Le joueur accusé doit révéler sa carte. S'il l'a, il la remplace dans le deck, et l'accusateur perd une influence. S'il mentait, il perd l'influence lui-même.
+                  </li>
+                  <li>
+                    <strong className="text-zinc-100">Le Blocage :</strong> Les cibles d'un vol ou d'un assassinat (ou n'importe qui pour l'Aide Extérieure) peuvent déclarer bloquer l'action en prétendant avoir le contre-rôle adéquat. Le blocage peut lui aussi être contesté !
+                  </li>
+                </ul>
+              </section>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
