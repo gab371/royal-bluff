@@ -9,14 +9,15 @@ interface UsePeerOptions {
 
 export function usePeer(options?: UsePeerOptions) {
   const peerManagerRef = useRef<PeerManager | null>(null);
-  const [myPeerId, setMyPeerId] = useState<string | null>(null);
-  const [hostPeerId, setHostPeerId] = useState<string | null>(null);
-  const [isHost, setIsHost] = useState<boolean>(false);
+  const ext = options?.externalPeerManager;
+  const [myPeerId, setMyPeerId] = useState<string | null>(ext?.myPeerId || null);
+  const [hostPeerId, setHostPeerId] = useState<string | null>(ext?.hostPeerId || ext?.roomId || null);
+  const [isHost, setIsHost] = useState<boolean>(ext?.isHost || false);
   const [connectedPeers, setConnectedPeers] = useState<string[]>([]);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [status, setStatus] = useState<'IDLE' | 'CONNECTING' | 'CONNECTED' | 'DISCONNECTED'>('IDLE');
+  const [status, setStatus] = useState<'IDLE' | 'CONNECTING' | 'CONNECTED' | 'DISCONNECTED'>(ext ? 'CONNECTED' : 'IDLE');
 
   if (!peerManagerRef.current) {
     peerManagerRef.current = options?.externalPeerManager || new PeerManager();

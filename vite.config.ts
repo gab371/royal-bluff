@@ -13,6 +13,10 @@ export default defineConfig(({ mode }) => {
         "@": path.resolve(__dirname, "./src"),
       },
     },
+    define: {
+      'process.env.NODE_ENV': JSON.stringify('production'),
+      'process.env': '{}',
+    },
     build: isLib ? {
       outDir: 'dist',
       lib: {

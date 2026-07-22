@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client'
 import App from './App.tsx'
 import './index.css'
 
-export function mount(element: HTMLElement, options: { peerId: string; onExit?: () => void; externalPeerManager?: any }) {
+export function mount(element: HTMLElement, options: { peerId: string; onExit?: () => void; externalPeerManager?: any; playerName?: string; playerAvatar?: string }) {
   const styleId = 'game-style-royal';
   if (!document.getElementById(styleId)) {
     const link = document.createElement('link');
@@ -16,7 +16,13 @@ export function mount(element: HTMLElement, options: { peerId: string; onExit?: 
   const root = createRoot(element);
   root.render(
     <StrictMode>
-      <App isEmbedded={true} externalPeerManager={options.externalPeerManager} onExit={options.onExit} />
+      <App
+        isEmbedded={true}
+        externalPeerManager={options.externalPeerManager}
+        onExit={options.onExit}
+        playerName={options.playerName}
+        playerAvatar={options.playerAvatar}
+      />
     </StrictMode>
   );
   return () => root.unmount();
