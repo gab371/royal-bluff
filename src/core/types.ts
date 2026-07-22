@@ -1,4 +1,4 @@
-export type Character = 'Duchesse' | 'Assassin' | 'Capitaine' | 'Comtesse' | 'Ambassadeur';
+export type Character = 'Duchesse' | 'Assassin' | 'Capitaine' | 'Comtesse' | 'Ambassadeur' | 'Inquisiteur';
 
 export interface Card {
   id: string;
@@ -24,7 +24,8 @@ export type ActionType =
   | 'TAXE'
   | 'ASSASSINAT'
   | 'VOL'
-  | 'ECHANGE';
+  | 'ECHANGE'
+  | 'INQUISITION';
 
 export type GamePhase =
   | 'LOBBY'
@@ -34,6 +35,7 @@ export type GamePhase =
   | 'CHALLENGE_BLOCK_WINDOW'
   | 'CHOOSE_LOSS'
   | 'EXCHANGE_DECISION'
+  | 'INQUISITION_DECISION'
   | 'GAME_OVER';
 
 export interface PendingAction {
@@ -54,6 +56,23 @@ export interface PendingLoss {
   playerUid: string;
   reason: 'CHALLENGE_LOST' | 'COUP' | 'ASSASSINAT' | 'BLOCK_CHALLENGE_LOST';
   nextPhaseAfterLoss: GamePhase;
+  // When true, the original pending action must still resolve after this loss
+  // (e.g. a challenge was made against the actor but the actor had the right card).
+  resolveActionAfterLoss?: boolean;
+}
+
+/** Inquisition reveal: exposes one target card to the actor only. */
+export interface InquisitionReveal {
+  actorUid: string;
+  targetUid: string;
+  cardId: string;
+  character: Character;
+}
+
+export interface GameConfig {
+  deckId: 'CLASSIC' | 'REFORMATION';
+  /** When true, the action helper (green borders on block-capable cards + info bubbles) is shown. */
+  actionHelper: boolean;
 }
 
 export interface GameLog {
@@ -72,6 +91,8 @@ export interface GameState {
   pendingBlock: PendingBlock | null;
   pendingLoss: PendingLoss | null;
   exchangeCards: Character[]; // Temp cards drawn during exchange
+  inquisitionReveal: InquisitionReveal | null; // Card revealed to the Inquisitor actor
+  config: GameConfig;
   winnerId: string | null;
   logs: GameLog[];
 }

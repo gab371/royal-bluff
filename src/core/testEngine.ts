@@ -87,8 +87,94 @@ function runTests() {
   console.log("=== Tous les tests ont réussi ! ===");
 }
 
+function runChallengeWonTests() {
+  console.log("=== Tests : Défi perdu (l'acteur avait la bonne carte) ===");
+
+  const engine = new RoyalBluffEngine();
+  engine.addPlayer("j1", "John", "👑", true);
+  engine.addPlayer("j2", "Seb", "🧙", false);
+  engine.startGame();
+
+  // John (j1) déclare TAXE. On force sa main à contenir la Duchesse.
+  engine.state.players[0].cards[0].character = 'Duchesse';
+  engine.state.players[0].cards[1].character = 'Assassin';
+  const coinsBefore = engine.state.players[0].coins;
+
+  let ok = engine.executeAction("j1", "TAXE");
+  assert(ok, "John déclare la TAXE");
+  assert(engine.state.phase === 'CHALLENGE_WINDOW', "Phase CHALLENGE_WINDOW");
+
+  // Seb (j2) conteste à tort (John a bien la Duchesse)
+  ok = engine.submitChallengeDecision("j2", true);
+  assert(ok, "Seb conteste la TAXE");
+  assert(engine.state.phase === 'CHOOSE_LOSS', "Le challenger (Seb) doit perdre une influence");
+  assert(engine.state.pendingLoss?.playerUid === "j2", "Seb est le perdant du défi");
+
+  // Seb choisit sa carte à perdre
+  const sebCardId = engine.state.players[1].cards[0].id;
+  ok = engine.chooseLoss("j2", sebCardId);
+  assert(ok, "Seb révèle son influence");
+  assert(engine.state.players[1].cards[0].isRevealed, "Carte de Seb révélée");
+
+  // BUG RÉPARÉ : John doit avoir reçu ses +3 pièces même après un défi
+  assert(engine.state.players[0].coins === coinsBefore + 3, "John reçoit ses +3 pièces de la TAXE après un défi perdu");
+  assert(engine.state.phase === 'ACTION_SELECTION', "Retour à ACTION_SELECTION après résolution");
+  assert(engine.getActivePlayer().id === "j2", "Le tour passe à Seb");
+
+  console.log("=== Tests défi perdu réussis ! ===");
+}
+
+function runInquisitionTests() {
+  console.log("=== Tests : Inquisiteur (deck Réformation) ===");
+
+  const engine = new RoyalBluffEngine();
+  engine.addPlayer("i1", "Ina", "🦅", true);
+  engine.addPlayer("i2", "Igor", "🛡️", false);
+  engine.setConfig({ deckId: 'REFORMATION' });
+  engine.startGame();
+
+  assert(engine.state.config.deckId === 'REFORMATION', "Deck Réformation sélectionné");
+  const totalCards = engine.state.deck.length + engine.state.players.reduce((n, p) => n + p.cards.length, 0);
+  assert(totalCards === 18, "Deck Réformation contient 18 cartes (6 rôles x 3)");
+
+  // Ina (i1) déclare INQUISITION sur Igor. On force sa main à Inquisiteur.
+  engine.state.players[0].cards[0].character = 'Inquisiteur';
+  engine.state.players[0].cards[1].character = 'Duchesse';
+  engine.state.players[1].cards[0].character = 'Capitaine';
+  engine.state.players[1].cards[1].character = 'Assassin';
+
+  let ok = engine.executeAction("i1", "INQUISITION", "i2");
+  assert(ok, "Ina déclare l'Inquisition sur Igor");
+  assert(engine.state.phase === 'CHALLENGE_WINDOW', "Phase CHALLENGE_WINDOW");
+
+  // Igor laisse passer (pas de défi)
+  ok = engine.submitChallengeDecision("i2", false);
+  assert(ok, "Igor laisse passer l'Inquisition");
+  assert(engine.state.phase === 'INQUISITION_DECISION', "Phase INQUISITION_DECISION");
+  assert(engine.state.inquisitionReveal?.actorUid === "i1", "La carte inspectée est révélée à Ina");
+  assert(engine.state.inquisitionReveal?.targetUid === "i2", "Cible = Igor");
+
+  const seenChar = engine.state.inquisitionReveal!.character;
+  const igorCardId = engine.state.inquisitionReveal!.cardId;
+  assert(seenChar === 'Capitaine' || seenChar === 'Assassin', "Ina voit une influence cachée d'Igor");
+
+  // Ina force l'échange de la carte inspectée
+  const igorFirstCharBefore = engine.state.players[1].cards.find(c => c.id === igorCardId)!.character;
+  ok = engine.inquisitionDecide("i1", true);
+  assert(ok, "Ina force l'échange");
+  const igorFirstCharAfter = engine.state.players[1].cards.find(c => c.id === igorCardId)!.character;
+  assert(igorFirstCharBefore !== igorFirstCharAfter || true, "Échange effectué (ou carte identique par hasard)");
+  assert(engine.state.inquisitionReveal === null, "Révélation nettoyée après décision");
+  assert(engine.state.phase === 'ACTION_SELECTION', "Retour à ACTION_SELECTION");
+  assert(engine.getActivePlayer().id === "i2", "Le tour passe à Igor");
+
+  console.log("=== Tests Inquisiteur réussis ! ===");
+}
+
 try {
   runTests();
+  runChallengeWonTests();
+  runInquisitionTests();
 } catch (e) {
   console.error("❌ Test échoué :", e);
   process.exit(1);

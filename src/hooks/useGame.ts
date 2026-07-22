@@ -3,7 +3,7 @@ import { usePeer } from "./usePeer";
 import { RoyalBluffEngine } from "../core/gameEngine";
 import { sanitizeGameState } from "../network/protocol";
 import type { NetworkMessage } from "../network/protocol";
-import type { GameState, ActionType, Character } from "../core/types";
+import type { GameState, ActionType, Character, GameConfig } from "../core/types";
 import { logMessage } from "../core/challengeEngine";
 
 interface UseGameOptions {
@@ -76,7 +76,8 @@ export function useGame(options?: UseGameOptions) {
 
     const engine = gameEngineRef.current;
 
-    // Auto start embedded game - deferred one tick to let usePeer register onStateReceived
+    // Embedded mode: populate players from the Hub lobby but STAY in LOBBY
+    // so the host can configure the deck / action helper before launching.
     if (options?.isEmbedded && options?.externalPeerManager && engine.state.phase === 'LOBBY') {
       setTimeout(() => {
         engine.state.players = [];
@@ -92,7 +93,7 @@ export function useGame(options?: UseGameOptions) {
           });
         }
 
-        engine.startGame();
+        // Do NOT auto-start: the host triggers startGame from the lobby.
         broadcastSanitizedStates(engine.state);
       }, 0);
     }
@@ -120,6 +121,12 @@ export function useGame(options?: UseGameOptions) {
             }
             break;
 
+          case 'CHANGE_CONFIG':
+            if (playerId === myPeerId) {
+              engine.setConfig(payload.config);
+            }
+            break;
+
           case 'DECLARE_ACTION':
             engine.executeAction(playerId, payload.action, payload.targetUid);
             break;
@@ -142,6 +149,10 @@ export function useGame(options?: UseGameOptions) {
 
           case 'EXCHANGE_SELECT':
             engine.exchangeSelect(playerId, payload.keptCardIds);
+            break;
+
+          case 'INQUISITION_DECIDE':
+            engine.inquisitionDecide(playerId, payload.forceSwap);
             break;
 
           case 'RESET_LOBBY':
@@ -224,6 +235,14 @@ export function useGame(options?: UseGameOptions) {
     sendAction('EXCHANGE_SELECT', { keptCardIds });
   }, [sendAction]);
 
+  const inquisitionDecide = useCallback((forceSwap: boolean) => {
+    sendAction('INQUISITION_DECIDE', { forceSwap });
+  }, [sendAction]);
+
+  const changeConfig = useCallback((config: Partial<GameConfig>) => {
+    sendAction('CHANGE_CONFIG', { config });
+  }, [sendAction]);
+
   const resetLobby = useCallback(() => {
     sendAction('RESET_LOBBY', {});
   }, [sendAction]);
@@ -251,6 +270,8 @@ export function useGame(options?: UseGameOptions) {
     blockChallengeDecision,
     chooseLoss,
     exchangeSelect,
+    inquisitionDecide,
+    changeConfig,
     resetLobby,
     sendChatMessage,
     disconnect,

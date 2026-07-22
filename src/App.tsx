@@ -38,6 +38,8 @@ export default function App({ isEmbedded = false, externalPeerManager, playerNam
     blockChallengeDecision,
     chooseLoss,
     exchangeSelect,
+    inquisitionDecide,
+    changeConfig,
     resetLobby,
     sendChatMessage,
     disconnect,
@@ -142,7 +144,9 @@ export default function App({ isEmbedded = false, externalPeerManager, playerNam
               joinRoom={joinRoom}
               toggleReady={toggleReady}
               startGame={startGame}
-              disconnect={disconnect}
+              disconnect={isEmbedded && onExit ? onExit : disconnect}
+              config={gameState?.config}
+              onChangeConfig={changeConfig}
             />
           </div>
         ) : (
@@ -157,6 +161,7 @@ export default function App({ isEmbedded = false, externalPeerManager, playerNam
                 blockChallengeDecision={blockChallengeDecision}
                 chooseLoss={chooseLoss}
                 exchangeSelect={exchangeSelect}
+                inquisitionDecide={inquisitionDecide}
                 resetLobby={resetLobby}
               />
             </div>
@@ -288,6 +293,19 @@ export default function App({ isEmbedded = false, externalPeerManager, playerNam
                   <li>
                     <strong className="text-amber-300">Ambassadeur (Échange) :</strong> Piochez 2 cartes du deck, mélangez-les avec vos cartes d'influence cachées, et remettez-en 2 sous le deck.
                   </li>
+                  <li>
+                    <strong className="text-amber-300">Inquisiteur (Inquisition) — extension Réformation :</strong> Inspectez secrètement une influence d'un adversaire et choisissez de forcer son échange avec la pioche. Bloque aussi l'Aide Extérieure (comme la Duchesse).
+                  </li>
+                </ul>
+              </section>
+
+              <section>
+                <h3 className="font-bold text-amber-500 uppercase tracking-wide text-xs mb-1">Decks & Aide aux actions</h3>
+                <p className="mb-2">Avant le lancement, l'hôte choisit le deck et l'aide aux actions dans le salon :</p>
+                <ul className="list-disc list-inside pl-2 space-y-1.5">
+                  <li><strong className="text-zinc-100">Coup Classique :</strong> 5 influences (15 cartes).</li>
+                  <li><strong className="text-zinc-100">Coup : Réformation :</strong> ajoute l'Inquisiteur (18 cartes).</li>
+                  <li><strong className="text-zinc-100">Aide aux actions :</strong> bordure verte sur les influences capables de bloquer l'action en cours et bulles d'info au survol des cartes.</li>
                 </ul>
               </section>
 

@@ -8,6 +8,7 @@ import type {
   PendingBlock,
   PendingLoss,
   GameLog,
+  GameConfig,
 } from "./types";
 import {
   getRequiredCharacterForAction,
@@ -16,6 +17,8 @@ import {
   checkVictory,
   logMessage,
 } from "./challengeEngine";
+import { getDeck, DEFAULT_DECK_ID } from "./decks";
+import type { DeckId } from "./decks";
 
 export class RoyalBluffEngine {
   public state: GameState;
@@ -34,6 +37,11 @@ export class RoyalBluffEngine {
       pendingBlock: null,
       pendingLoss: null,
       exchangeCards: [],
+      inquisitionReveal: null,
+      config: {
+        deckId: DEFAULT_DECK_ID,
+        actionHelper: true,
+      },
       winnerId: null,
       logs: [],
     };
@@ -63,15 +71,23 @@ export class RoyalBluffEngine {
     if (p) p.isReady = readyStatus;
   }
 
+  public setConfig(partial: Partial<GameConfig>): boolean {
+    if (this.state.phase !== 'LOBBY') return false;
+    if (partial.deckId && getDeck(partial.deckId).id !== partial.deckId) return false;
+    this.state.config = { ...this.state.config, ...partial };
+    logMessage(this.state, `Configuration mise à jour (deck: ${this.state.config.deckId}, aide: ${this.state.config.actionHelper ? 'on' : 'off'}).`, 'system');
+    return true;
+  }
+
   public startGame(): boolean {
     const activePlayers = this.state.players.filter(p => !p.isEliminated);
     if (activePlayers.length < 2 || activePlayers.length > 6) return false;
 
-    // Generate deck: 3 copies of 5 characters
-    const chars: Character[] = ['Duchesse', 'Assassin', 'Capitaine', 'Comtesse', 'Ambassadeur'];
+    // Build deck from the selected deck definition.
+    const deckDef = getDeck(this.state.config.deckId);
     let rawDeck: Character[] = [];
-    chars.forEach(c => {
-      rawDeck.push(c, c, c);
+    deckDef.characters.forEach(c => {
+      for (let i = 0; i < deckDef.copiesPerCharacter; i++) rawDeck.push(c);
     });
 
     this.state.deck = shuffleDeck(rawDeck);
@@ -81,6 +97,7 @@ export class RoyalBluffEngine {
     this.state.pendingAction = null;
     this.state.pendingBlock = null;
     this.state.pendingLoss = null;
+    this.state.inquisitionReveal = null;
 
     this.state.players.forEach(p => {
       p.coins = 2;
@@ -91,7 +108,7 @@ export class RoyalBluffEngine {
       ];
     });
 
-    logMessage(this.state, `La partie commence !`, 'system');
+    logMessage(this.state, `La partie commence ! Deck : ${deckDef.name}.`, 'system');
     return true;
   }
 
@@ -124,6 +141,7 @@ export class RoyalBluffEngine {
     this.state.pendingBlock = null;
     this.state.pendingLoss = null;
     this.state.exchangeCards = [];
+    this.state.inquisitionReveal = null;
     this.state.winnerId = null;
     logMessage(this.state, `Retour au salon. En attente de préparation des conspirateurs.`, 'system');
   }
@@ -174,6 +192,10 @@ export class RoyalBluffEngine {
     if (action === 'COUP' && actor.coins < 7) return false;
     if (action === 'ASSASSINAT' && actor.coins < 3) return false;
 
+    // INQUISITION requires a target opponent
+    if (action === 'INQUISITION' && !targetUid) return false;
+    if (action === 'INQUISITION' && targetUid === actor.id) return false;
+
     // Pay costs
     if (action === 'COUP') actor.coins -= 7;
     if (action === 'ASSASSINAT') actor.coins -= 3;
@@ -197,7 +219,7 @@ export class RoyalBluffEngine {
       return true;
     }
 
-    // Challengeable action (TAXE, ASSASSINAT, VOL, ECHANGE, AIDE_EXTERIEURE)
+    // Challengeable action (TAXE, ASSASSINAT, VOL, ECHANGE, AIDE_EXTERIEURE, INQUISITION)
     this.state.pendingAction = {
       playerUid: actor.id,
       action,
@@ -234,16 +256,17 @@ export class RoyalBluffEngine {
         this.state.deck = shuffleDeck(this.state.deck);
         actor.cards[cardIdx].character = this.state.deck.pop()!;
 
-        // Challenger loses card
-        const nextPhase = this.state.pendingAction.action === 'ASSASSINAT' ||
-                          this.state.pendingAction.action === 'VOL'
-                            ? 'BLOCK_WINDOW'
-                            : 'ACTION_SELECTION';
-
+        // Challenger loses card. The original action STILL resolves
+        // (the actor proved they had the required character).
+        // resolveUnchallengedAction handles the per-action transitions:
+        //  - TAXE: actor gains +3 and turn advances
+        //  - ECHANGE: enters EXCHANGE_DECISION
+        //  - ASSASSINAT / VOL / AIDE_EXTERIEURE: enters BLOCK_WINDOW
         this.state.pendingLoss = {
           playerUid: decider.id,
           reason: 'CHALLENGE_LOST',
-          nextPhaseAfterLoss: nextPhase,
+          nextPhaseAfterLoss: 'ACTION_SELECTION',
+          resolveActionAfterLoss: true,
         };
         this.state.phase = 'CHOOSE_LOSS';
       } else {
@@ -279,9 +302,68 @@ export class RoyalBluffEngine {
     } else if (act.action === 'ECHANGE') {
       this.state.exchangeCards = [this.state.deck.pop()!, this.state.deck.pop()!];
       this.state.phase = 'EXCHANGE_DECISION';
+    } else if (act.action === 'INQUISITION') {
+      this.beginInquisitionDecision();
     } else if (act.action === 'AIDE_EXTERIEURE' || act.action === 'ASSASSINAT' || act.action === 'VOL') {
       this.state.phase = 'BLOCK_WINDOW';
     }
+  }
+
+  /** Sets up the INQUISITION_DECISION phase: reveals one of the target's hidden cards to the actor. */
+  private beginInquisitionDecision(): void {
+    const act = this.state.pendingAction!;
+    const target = this.state.players.find(p => p.id === act.targetUid);
+    if (!target) {
+      this.advanceTurn();
+      return;
+    }
+    const hiddenCard = target.cards.find(c => !c.isRevealed);
+    if (!hiddenCard) {
+      // No hidden influence to inspect: action fizzles.
+      logMessage(this.state, `${target.name} n'a plus d'influence cachée à inspecter.`, 'info');
+      this.advanceTurn();
+      return;
+    }
+    this.state.inquisitionReveal = {
+      actorUid: act.playerUid,
+      targetUid: target.id,
+      cardId: hiddenCard.id,
+      character: hiddenCard.character,
+    };
+    this.state.phase = 'INQUISITION_DECISION';
+  }
+
+  /**
+   * Inquisitor decides whether to force the inspected card to be swapped with the deck.
+   * Only valid in INQUISITION_DECISION phase and only by the actor.
+   */
+  public inquisitionDecide(playerId: string, forceSwap: boolean): boolean {
+    if (this.state.phase !== 'INQUISITION_DECISION' || !this.state.inquisitionReveal) return false;
+    const reveal = this.state.inquisitionReveal;
+    if (reveal.actorUid !== playerId) return false;
+
+    const target = this.state.players.find(p => p.id === reveal.targetUid);
+    if (!target) {
+      this.state.inquisitionReveal = null;
+      this.advanceTurn();
+      return true;
+    }
+
+    if (forceSwap) {
+      const card = target.cards.find(c => c.id === reveal.cardId && !c.isRevealed);
+      if (card) {
+        this.state.deck.push(card.character);
+        this.state.deck = shuffleDeck(this.state.deck);
+        card.character = this.state.deck.pop()!;
+        logMessage(this.state, `${this.getActivePlayer().name} force l'échange d'une influence de ${target.name}.`, 'action');
+      }
+    } else {
+      logMessage(this.state, `${this.getActivePlayer().name} laisse l'influence de ${target.name} en place.`, 'info');
+    }
+
+    this.state.inquisitionReveal = null;
+    this.advanceTurn();
+    return true;
   }
 
   public submitBlockDecision(playerId: string, blockCharacter: Character | null): boolean {
@@ -296,7 +378,7 @@ export class RoyalBluffEngine {
     if (!isTarget && !isForeignAid) return false; // Only target or anyone for Foreign Aid
 
     if (blockCharacter) {
-      if (!isBlockAllowed(this.state.pendingAction.action, blockCharacter)) return false;
+      if (!isBlockAllowed(this.state, blockCharacter)) return false;
       logMessage(this.state, `${decider.name} bloque l'action avec ${blockCharacter}.`, 'block');
       this.state.pendingBlock = {
         playerUid: decider.id,
@@ -420,6 +502,7 @@ export class RoyalBluffEngine {
     }
 
     const nextPhase = this.state.pendingLoss.nextPhaseAfterLoss;
+    const shouldResolveAction = this.state.pendingLoss.resolveActionAfterLoss;
     const wasBlockChallengeFailure =
       this.state.pendingLoss.reason === 'BLOCK_CHALLENGE_LOST' &&
       this.state.pendingBlock &&
@@ -431,6 +514,11 @@ export class RoyalBluffEngine {
       this.state.pendingBlock = null;
       this.state.pendingLoss = null;
       this.resolveActionEffects();
+    } else if (shouldResolveAction) {
+      // Challenger lost the card, but the actor proved their role:
+      // the original pending action still resolves.
+      this.state.pendingLoss = null;
+      this.resolveUnchallengedAction();
     } else {
       this.state.pendingLoss = null;
       if (nextPhase === 'ACTION_SELECTION') {

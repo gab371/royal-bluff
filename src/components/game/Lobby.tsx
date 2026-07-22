@@ -1,4 +1,7 @@
 import { useState } from "react";
+import { DECKS } from "../../core/decks";
+import type { DeckId } from "../../core/decks";
+import type { GameConfig } from "../../core/types";
 
 interface LobbyProps {
   myPeerId: string | null;
@@ -12,6 +15,8 @@ interface LobbyProps {
   toggleReady: (ready: boolean) => void;
   startGame: () => void;
   disconnect: () => void;
+  config?: GameConfig;
+  onChangeConfig?: (partial: Partial<GameConfig>) => void;
 }
 
 const AVATARS = ["👑", "🏰", "🗡️", "⚜️", "🪙", "🛡️", "🦁", "🦅"];
@@ -28,6 +33,8 @@ export function Lobby({
   toggleReady,
   startGame,
   disconnect,
+  config,
+  onChangeConfig,
 }: LobbyProps) {
   const [name, setName] = useState("");
   const [avatar, setAvatar] = useState("👑");
@@ -35,6 +42,9 @@ export function Lobby({
   const [loading, setLoading] = useState(false);
   const [localReady, setLocalReady] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  const activeDeckId: DeckId = config?.deckId ?? 'CLASSIC';
+  const actionHelper = config?.actionHelper ?? true;
 
   const handleCopy = () => {
     if (hostPeerId) {
@@ -123,6 +133,69 @@ export function Lobby({
           </span>
         </div>
         <p className="text-zinc-400 text-sm mb-6">Partagez ce code avec vos courtisans pour les inviter à conspirer.</p>
+
+        {/* PANNEAU DE CONFIGURATION PRÉ-PARTIE (Deck + Aide aux actions) */}
+        <div className="bg-zinc-950/40 border border-zinc-800 rounded-2xl p-4 mb-6 space-y-4">
+          <div>
+            <div className="text-xs text-amber-500 font-bold uppercase tracking-widest mb-2">Deck</div>
+            {isHost ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {(Object.values(DECKS)).map((deck) => (
+                  <button
+                    key={deck.id}
+                    onClick={() => onChangeConfig?.({ deckId: deck.id })}
+                    className={`text-left p-3 rounded-xl border-2 transition-all ${
+                      activeDeckId === deck.id
+                        ? "bg-amber-500/15 border-amber-500"
+                        : "bg-zinc-900 border-zinc-800 hover:border-zinc-700"
+                    }`}
+                  >
+                    <div className="text-sm font-bold text-zinc-100">{deck.name}</div>
+                    <div className="text-[11px] text-zinc-400 mt-0.5 leading-snug">{deck.description}</div>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="text-zinc-200 font-semibold bg-zinc-900 p-2.5 rounded-xl border border-zinc-800 text-sm">
+                Actif : {DECKS[activeDeckId].name}
+              </div>
+            )}
+          </div>
+
+          <div>
+            <div className="text-xs text-amber-500 font-bold uppercase tracking-widest mb-2">Aide aux actions</div>
+            {isHost ? (
+              <button
+                onClick={() => onChangeConfig?.({ actionHelper: !actionHelper })}
+                className={`w-full flex items-center justify-between p-3 rounded-xl border-2 transition-all ${
+                  actionHelper
+                    ? "bg-emerald-500/15 border-emerald-500"
+                    : "bg-zinc-900 border-zinc-800 hover:border-zinc-700"
+                }`}
+              >
+                <span className="text-left">
+                  <span className="block text-sm font-bold text-zinc-100">
+                    Aide aux actions : {actionHelper ? "Activée" : "Désactivée"}
+                  </span>
+                  <span className="block text-[11px] text-zinc-400 mt-0.5 leading-snug">
+                    Bordure verte sur les cartes capables de bloquer, bulles d'info sur chaque influence.
+                  </span>
+                </span>
+                <span
+                  className={`w-10 h-6 rounded-full relative transition-all ${actionHelper ? "bg-emerald-500" : "bg-zinc-700"}`}
+                >
+                  <span
+                    className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-all ${actionHelper ? "left-[18px]" : "left-0.5"}`}
+                  />
+                </span>
+              </button>
+            ) : (
+              <div className="text-zinc-200 font-semibold bg-zinc-900 p-2.5 rounded-xl border border-zinc-800 text-sm">
+                Aide aux actions : {actionHelper ? "Activée" : "Désactivée"}
+              </div>
+            )}
+          </div>
+        </div>
 
         <div className="space-y-4 mb-8">
           <h2 className="text-lg font-bold text-zinc-200">Conspirateurs connectés ({players.length})</h2>

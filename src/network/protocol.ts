@@ -26,9 +26,11 @@ export type ClientActionType =
   | 'BLOCK_CHALLENGE_DECISION'
   | 'CHOOSE_LOSS'
   | 'EXCHANGE_SELECT'
+  | 'INQUISITION_DECIDE'
   | 'READY'
   | 'START_GAME'
-  | 'RESET_LOBBY';
+  | 'RESET_LOBBY'
+  | 'CHANGE_CONFIG';
 
 export interface ActionMessage extends NetworkMessage {
   type: 'ACTION';
@@ -69,10 +71,17 @@ export function sanitizeGameState(state: GameState, targetPlayerId: string): Gam
   // Only the active player should see the exchangeCards if they are in the EXCHANGE_DECISION phase
   const showExchange = state.phase === 'EXCHANGE_DECISION' && state.players[state.activePlayerIndex]?.id === targetPlayerId;
 
+  // Only the Inquisitor actor may see the inspected card's real character.
+  const reveal = state.inquisitionReveal;
+  const sanitizedReveal = reveal && reveal.actorUid === targetPlayerId
+    ? { ...reveal }
+    : null;
+
   return {
     ...state,
     deck: [], // Hide remaining deck
     exchangeCards: showExchange ? [...state.exchangeCards] : [],
+    inquisitionReveal: sanitizedReveal,
     players: sanitizedPlayers,
   };
 }

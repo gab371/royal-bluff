@@ -1,7 +1,9 @@
 import { useState } from "react";
-import type { GameState, Character, ActionType } from "../../core/types";
-import { Coins, Shield, Swords, RefreshCw } from "lucide-react";
+import type { GameState, Character, ActionType, GameConfig } from "../../core/types";
+import { Coins, Shield, Swords, RefreshCw, Eye } from "lucide-react";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
+import { getBlockOptions } from "../../core/decks";
+import type { DeckId } from "../../core/decks";
 
 const getCharacterTooltip = (char: Character): string => {
   switch (char) {
@@ -15,6 +17,8 @@ const getCharacterTooltip = (char: Character): string => {
       return "Contre : Bloque l'Assassinat.";
     case 'Ambassadeur':
       return "Échange : Pioche 2 cartes de la pioche, les mélange avec ses influences cachées, puis en remet 2 dans la pioche. Bloque le Vol.";
+    case 'Inquisiteur':
+      return "Inquisition : Inspecte une influence adverse et peut forcer son échange avec la pioche. Bloque l'Aide Extérieure (extension Réformation).";
     default:
       return "Influence secrète.";
   }
@@ -29,6 +33,7 @@ interface GamePanelProps {
   blockChallengeDecision: (challenge: boolean) => void;
   chooseLoss: (cardId: string) => void;
   exchangeSelect: (keptCardIds: string[]) => void;
+  inquisitionDecide: (forceSwap: boolean) => void;
   resetLobby: () => void;
 }
 
@@ -41,12 +46,15 @@ export function GamePanel({
   blockChallengeDecision,
   chooseLoss,
   exchangeSelect,
+  inquisitionDecide,
   resetLobby,
 }: GamePanelProps) {
-  const { players, activePlayerIndex, phase, pendingAction, pendingBlock, pendingLoss, exchangeCards } = gameState;
+  const { players, activePlayerIndex, phase, pendingAction, pendingBlock, pendingLoss, exchangeCards, inquisitionReveal, config } = gameState;
   const activePlayer = players[activePlayerIndex];
   const localPlayer = players.find(p => p.id === myPeerId)!;
   const isMyTurn = activePlayer?.id === myPeerId;
+  const actionHelper = config?.actionHelper ?? true;
+  const deckId: DeckId = config?.deckId ?? 'CLASSIC';
 
   const [selectedTarget, setSelectedTarget] = useState<string>("");
   const [selectedExchange, setSelectedExchange] = useState<string[]>([]);
@@ -55,6 +63,7 @@ export function GamePanel({
 
   const renderPlayerCards = (player: typeof localPlayer) => {
     const isSelf = player.id === myPeerId;
+    const blockableChars = isSelf ? getBlockableCharacters() : [];
     return (
       <div className="flex gap-4 mt-4 justify-center">
         {player.cards.map((card) => {
@@ -68,19 +77,38 @@ export function GamePanel({
             cardBg = "bg-zinc-800 border-amber-500/40 text-zinc-100 shadow-md shadow-amber-500/5";
           }
 
+          // Green border on cards that can block the current pending action
+          const canBlockCurrent = !card.isRevealed && blockableChars.includes(card.character);
+          if (canBlockCurrent) {
+            cardBg = "bg-emerald-950/40 border-emerald-500 text-emerald-100 shadow-md shadow-emerald-500/20";
+          }
+
           const canClick = phase === 'CHOOSE_LOSS' && pendingLoss?.playerUid === myPeerId && !card.isRevealed && isSelf;
           const showTooltip = card.isRevealed || isSelf;
+          const showInfoBadge = actionHelper && showTooltip && !card.isRevealed;
 
           const cardButton = (
             <button
               disabled={!canClick}
               onClick={() => chooseLoss(card.id)}
-              className={`w-24 h-32 sm:w-28 sm:h-36 rounded-2xl border flex flex-col items-center justify-between p-3 sm:p-4 transition-all ${cardBg} ${
-                canClick ? "hover:scale-105 border-rose-500 hover:shadow-lg hover:shadow-rose-500/20 cursor-pointer animate-pulse" : "cursor-default"
+              className={`relative w-24 h-32 sm:w-28 sm:h-36 rounded-2xl border flex flex-col items-center justify-between p-3 sm:p-4 transition-all ${cardBg} ${
+                canClick
+                  ? "hover:scale-105 border-rose-500 hover:shadow-lg hover:shadow-rose-500/20 cursor-pointer animate-pulse"
+                  : canBlockCurrent
+                    ? "hover:scale-105 cursor-help animate-pulse"
+                    : "cursor-default"
               }`}
             >
+              {showInfoBadge && (
+                <span
+                  className="absolute top-1 right-1 w-4 h-4 rounded-full bg-zinc-700/80 text-zinc-200 text-[9px] font-bold flex items-center justify-center"
+                  aria-hidden="true"
+                >
+                  ⓘ
+                </span>
+              )}
               <span className="text-[10px] uppercase tracking-widest text-zinc-500 font-bold">
-                {card.isRevealed ? "Éliminé" : "Influence"}
+                {card.isRevealed ? "Éliminé" : canBlockCurrent ? "Blocage" : "Influence"}
               </span>
               <span className="text-sm sm:text-base font-black tracking-tight text-center break-words max-w-full px-0.5">
                 {displayChar}
@@ -101,6 +129,9 @@ export function GamePanel({
                   <TooltipContent side="top" className="text-center font-medium">
                     <p className="font-bold text-amber-400 mb-0.5">{card.character}</p>
                     <p className="text-zinc-300">{getCharacterTooltip(card.character)}</p>
+                    {canBlockCurrent && (
+                      <p className="text-emerald-400 font-bold mt-1">🛡️ Peut bloquer l'action en cours</p>
+                    )}
                   </TooltipContent>
                 )}
               </Tooltip>
@@ -115,9 +146,19 @@ export function GamePanel({
     return players.filter(p => !p.isEliminated && p.id !== myPeerId);
   };
 
+  // Characters the local player can use to block the current pending action.
+  // Used to highlight block-capable cards in the local hand with a green border.
+  const getBlockableCharacters = (): Character[] => {
+    if (!actionHelper || phase !== 'BLOCK_WINDOW' || !pendingAction) return [];
+    const isTarget = pendingAction.targetUid === myPeerId;
+    const isForeignAid = pendingAction.action === 'AIDE_EXTERIEURE';
+    if (!isTarget && !isForeignAid) return [];
+    return getBlockOptions(deckId, pendingAction.action);
+  };
+
   const handleAction = (action: ActionType) => {
     const targets = getTargetablePlayers(action);
-    if (action === 'COUP' || action === 'ASSASSINAT' || action === 'VOL') {
+    if (action === 'COUP' || action === 'ASSASSINAT' || action === 'VOL' || action === 'INQUISITION') {
       if (!selectedTarget) return;
       declareAction(action, selectedTarget);
       setSelectedTarget("");
@@ -273,6 +314,16 @@ export function GamePanel({
                       </button>
                     </>
                   )}
+                  {deckId === 'REFORMATION' && localPlayer.coins < 10 && (
+                    <button
+                      onClick={() => handleAction('INQUISITION')}
+                      disabled={!selectedTarget}
+                      className="py-3 px-4 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white font-bold rounded-2xl text-xs flex items-center justify-center gap-1.5 shadow-md"
+                    >
+                      <Eye className="w-4 h-4" />
+                      Inquisition
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -311,10 +362,7 @@ export function GamePanel({
               const isForeignAid = pendingAction.action === 'AIDE_EXTERIEURE';
               if (!isTarget && !isForeignAid) return null;
 
-              let blockOptions: Character[] = [];
-              if (pendingAction.action === 'AIDE_EXTERIEURE') blockOptions = ['Duchesse'];
-              if (pendingAction.action === 'ASSASSINAT') blockOptions = ['Comtesse'];
-              if (pendingAction.action === 'VOL') blockOptions = ['Capitaine', 'Ambassadeur'];
+              let blockOptions: Character[] = getBlockOptions(deckId, pendingAction.action);
 
               return (
                 <div className="space-y-4">
@@ -418,6 +466,34 @@ export function GamePanel({
             </div>
           )}
 
+          {/* 6b. Inquisition Decision (Inquisitor) */}
+          {phase === 'INQUISITION_DECISION' && isMyTurn && inquisitionReveal && !localPlayer.isEliminated && (
+            <div className="space-y-4">
+              <p className="text-xs text-indigo-400">
+                Vous inspectez une influence de{" "}
+                <span className="font-bold">
+                  {players.find(p => p.id === inquisitionReveal.targetUid)?.name}
+                </span>{" "}
+                : <span className="font-bold text-amber-400">{inquisitionReveal.character}</span>.
+                Forcer son échange avec la pioche ?
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => inquisitionDecide(true)}
+                  className="flex-1 py-3 px-4 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-2xl text-xs shadow-md"
+                >
+                  Forcer l'échange
+                </button>
+                <button
+                  onClick={() => inquisitionDecide(false)}
+                  className="flex-1 py-3 px-4 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-bold rounded-2xl text-xs"
+                >
+                  Ne rien faire
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* 7. Game Over Screen with Restart */}
           {phase === 'GAME_OVER' && (
             <div className="space-y-4 text-center py-4">
@@ -451,6 +527,7 @@ export function GamePanel({
               {phase === 'BLOCK_WINDOW' && `Vérification des tentatives de blocage...`}
               {phase === 'CHALLENGE_BLOCK_WINDOW' && `Les comploteurs décident de contester le blocage...`}
               {phase === 'CHOOSE_LOSS' && pendingLoss?.playerUid !== myPeerId && `En attente de la révélation d'influence de ${players.find(p=>p.id===pendingLoss?.playerUid)?.name}...`}
+              {phase === 'INQUISITION_DECISION' && !isMyTurn && `${activePlayer?.name} inspecte une influence...`}
             </div>
           )}
         </div>

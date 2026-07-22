@@ -1,4 +1,5 @@
 import type { GameState, Player, Character, ActionType, Card } from "./types";
+import { getDeck } from "./decks";
 
 export function getRequiredCharacterForAction(action: ActionType): Character | null {
   switch (action) {
@@ -10,22 +11,20 @@ export function getRequiredCharacterForAction(action: ActionType): Character | n
       return 'Capitaine';
     case 'ECHANGE':
       return 'Ambassadeur';
+    case 'INQUISITION':
+      return 'Inquisiteur';
     default:
       return null;
   }
 }
 
-export function isBlockAllowed(action: ActionType, blockCharacter: Character): boolean {
-  switch (action) {
-    case 'AIDE_EXTERIEURE':
-      return blockCharacter === 'Duchesse';
-    case 'ASSASSINAT':
-      return blockCharacter === 'Comtesse';
-    case 'VOL':
-      return blockCharacter === 'Capitaine' || blockCharacter === 'Ambassadeur';
-    default:
-      return false;
-  }
+export function isBlockAllowed(state: GameState, blockCharacter: Character): boolean {
+  if (!state.pendingAction) return false;
+  const action = state.pendingAction.action;
+  const options = getDeck(state.config.deckId).blockOptions;
+  const allowed = options[action as keyof typeof options];
+  if (!allowed) return false;
+  return allowed.includes(blockCharacter);
 }
 
 export function shuffleDeck(deck: Character[]): Character[] {
