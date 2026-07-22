@@ -54,7 +54,7 @@ jobs:
           if [[ "${{ github.ref }}" == refs/tags/* ]]; then
             echo "TAG_NAME=${{ github.ref_name }}" >> $GITHUB_ENV
           else
-            echo "TAG_NAME=v0.1.0" >> $GITHUB_ENV
+            echo "TAG_NAME=v$(node -p "JSON.parse(require('fs').readFileSync('package.json')).version")" >> $GITHUB_ENV
           fi
         shell: bash
 
