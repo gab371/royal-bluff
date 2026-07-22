@@ -83,8 +83,8 @@ export function useGame(options?: UseGameOptions) {
       const hostAvatar = options.playerAvatar || "👑";
       engine.addPlayer(myPeerId!, hostName, hostAvatar, true);
 
-      if (peerManager.lobbyPlayers) {
-        peerManager.lobbyPlayers.forEach((p: any) => {
+      if ((peerManager as any).lobbyPlayers) {
+        (peerManager as any).lobbyPlayers.forEach((p: any) => {
           if (p.peerId && p.peerId !== myPeerId) {
             engine.addPlayer(p.peerId, p.username || `Joueur ${p.peerId.slice(0, 4)}`, p.avatar || "👤", false);
           }
