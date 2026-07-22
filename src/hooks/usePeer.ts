@@ -22,7 +22,7 @@ export function usePeer(options?: UsePeerOptions) {
     peerManagerRef.current = options?.externalPeerManager || new PeerManager();
   }
 
-  const peerManager = peerManagerRef.current;
+  const peerManager = peerManagerRef.current as PeerManager;
 
   useEffect(() => {
     peerManager.onStateReceived = (state: GameState) => {
@@ -115,6 +115,6 @@ export function usePeer(options?: UsePeerOptions) {
     sendAction,
     sendChat,
     disconnect,
-    peerManager,
+    peerManager: peerManager as PeerManager,
   };
 }
