@@ -76,23 +76,25 @@ export function useGame(options?: UseGameOptions) {
 
     const engine = gameEngineRef.current;
 
-    // Auto start embedded game
+    // Auto start embedded game - deferred one tick to let usePeer register onStateReceived
     if (options?.isEmbedded && options?.externalPeerManager && engine.state.phase === 'LOBBY') {
-      engine.state.players = [];
-      const hostName = options.playerName || "Hôte";
-      const hostAvatar = options.playerAvatar || "👑";
-      engine.addPlayer(myPeerId!, hostName, hostAvatar, true);
+      setTimeout(() => {
+        engine.state.players = [];
+        const hostName = options.playerName || "Hôte";
+        const hostAvatar = options.playerAvatar || "👑";
+        engine.addPlayer(myPeerId!, hostName, hostAvatar, true);
 
-      if ((peerManager as any).lobbyPlayers) {
-        (peerManager as any).lobbyPlayers.forEach((p: any) => {
-          if (p.peerId && p.peerId !== myPeerId) {
-            engine.addPlayer(p.peerId, p.username || `Joueur ${p.peerId.slice(0, 4)}`, p.avatar || "👤", false);
-          }
-        });
-      }
+        if ((peerManager as any).lobbyPlayers) {
+          (peerManager as any).lobbyPlayers.forEach((p: any) => {
+            if (p.peerId && p.peerId !== myPeerId) {
+              engine.addPlayer(p.peerId, p.username || `Joueur ${p.peerId.slice(0, 4)}`, p.avatar || "👤", false);
+            }
+          });
+        }
 
-      engine.startGame();
-      broadcastSanitizedStates(engine.state);
+        engine.startGame();
+        broadcastSanitizedStates(engine.state);
+      }, 0);
     }
 
     peerManager.hostActionHandler = (_senderPeerId: string, actionMsg: NetworkMessage) => {
