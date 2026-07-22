@@ -4,6 +4,15 @@ import App from './App.tsx'
 import './index.css'
 
 export function mount(element: HTMLElement, options: { peerId: string; onExit?: () => void; externalPeerManager?: any }) {
+  const styleId = 'game-style-royal';
+  if (!document.getElementById(styleId)) {
+    const link = document.createElement('link');
+    link.id = styleId;
+    link.rel = 'stylesheet';
+    link.href = '/games/royal/style.css';
+    document.head.appendChild(link);
+  }
+
   const root = createRoot(element);
   root.render(
     <StrictMode>

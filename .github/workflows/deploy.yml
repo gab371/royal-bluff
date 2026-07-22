@@ -33,10 +33,19 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Build
+      - name: Build Standalone
         run: npm run build
 
-      - name: Zip build assets
+      - name: Copy Standalone build
+        run: cp -r dist dist-standalone
+
+      - name: Zip Standalone assets
+        run: zip -r standalone.zip dist-standalone
+
+      - name: Build Library
+        run: npx vite build --mode lib
+
+      - name: Zip Library assets
         run: zip -r dist.zip dist
 
       - name: Set Release Tag
@@ -52,7 +61,7 @@ jobs:
       - name: Create or Update Release
         uses: ncipollo/release-action@v1
         with:
-          artifacts: "dist.zip"
+          artifacts: "dist.zip,standalone.zip"
           token: ${{ secrets.GITHUB_TOKEN }}
           tag: ${{ env.TAG_NAME }}
           allowUpdates: true
@@ -62,10 +71,10 @@ jobs:
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
-      - name: Upload artifact
+      - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: './dist'
+          path: './dist-standalone'
 
       - name: Deploy to GitHub Pages
         id: deployment
