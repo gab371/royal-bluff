@@ -5,6 +5,7 @@ import { GamePanel } from "./components/game/GamePanel";
 import { LogConsole } from "./components/game/LogConsole";
 import { Swords, MessageSquare, Send, FileText, X } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { SoundToggle } from "./components/ui/SoundToggle";
 
 interface AppProps {
   isEmbedded?: boolean;
@@ -107,6 +108,8 @@ export default function App({ isEmbedded = false, externalPeerManager, playerNam
             <FileText className="w-3.5 h-3.5" />
             <span>Règles</span>
           </button>
+
+          <SoundToggle className="bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-zinc-100 border-zinc-800" />
 
           {gameState && gameState.phase !== 'LOBBY' && (
             <>

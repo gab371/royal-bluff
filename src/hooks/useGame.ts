@@ -19,6 +19,7 @@ export function useGame(options?: UseGameOptions) {
     isHost,
     myPeerId,
     peerManager,
+    playSfx,
     hostGame,
     joinGame,
     sendAction,
@@ -31,6 +32,7 @@ export function useGame(options?: UseGameOptions) {
   } = p2p;
 
   const gameEngineRef = useRef<RoyalBluffEngine | null>(null);
+  const victoryPlayedRef = useRef<boolean>(false);
   const [localPlayerName, setLocalPlayerName] = useState<string>(options?.playerName || "");
   const [localPlayerAvatar, setLocalPlayerAvatar] = useState<string>(options?.playerAvatar || "👑");
 
@@ -118,6 +120,7 @@ export function useGame(options?: UseGameOptions) {
           case 'START_GAME':
             if (playerId === myPeerId) {
               engine.startGame();
+              playSfx('sword');
             }
             break;
 
@@ -129,22 +132,43 @@ export function useGame(options?: UseGameOptions) {
 
           case 'DECLARE_ACTION':
             engine.executeAction(playerId, payload.action, payload.targetUid);
+            // Sound depends on the declared action type.
+            switch (payload.action as ActionType) {
+              case 'ASSASSINAT':
+              case 'COUP':
+                playSfx('sword');
+                break;
+              case 'REVENU':
+              case 'AIDE_EXTERIEURE':
+              case 'TAXE':
+              case 'VOL':
+                playSfx('coin');
+                break;
+              case 'ECHANGE':
+              case 'INQUISITION':
+                playSfx('card');
+                break;
+            }
             break;
 
           case 'CHALLENGE_DECISION':
             engine.submitChallengeDecision(playerId, payload.challenge);
+            if (payload.challenge) playSfx('click');
             break;
 
           case 'BLOCK_DECISION':
             engine.submitBlockDecision(playerId, payload.blockCharacter);
+            if (payload.blockCharacter) playSfx('click');
             break;
 
           case 'BLOCK_CHALLENGE_DECISION':
             engine.submitBlockChallengeDecision(playerId, payload.challenge);
+            if (payload.challenge) playSfx('click');
             break;
 
           case 'CHOOSE_LOSS':
             engine.chooseLoss(playerId, payload.cardId);
+            playSfx('defeat');
             break;
 
           case 'EXCHANGE_SELECT':
@@ -163,6 +187,14 @@ export function useGame(options?: UseGameOptions) {
         }
 
         broadcastSanitizedStates(engine.state);
+
+        // Victory fanfare once when the game ends (broadcast to all peers).
+        if (engine.state.phase === 'GAME_OVER' && !victoryPlayedRef.current) {
+          victoryPlayedRef.current = true;
+          playSfx('victory');
+        } else if (engine.state.phase !== 'GAME_OVER') {
+          victoryPlayedRef.current = false;
+        }
       }
     };
 
@@ -177,7 +209,7 @@ export function useGame(options?: UseGameOptions) {
       peerManager.hostActionHandler = null;
       peerManager.onPeerStatusChange = null;
     };
-  }, [isHost, myPeerId, peerManager, broadcastSanitizedStates]);
+  }, [isHost, myPeerId, peerManager, playSfx, broadcastSanitizedStates]);
 
   // Client triggers
   const hostRoom = useCallback(async (name: string, avatar: string) => {

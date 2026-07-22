@@ -1,7 +1,7 @@
 import Peer from "peerjs";
 import type { DataConnection } from "peerjs";
 import type { GameState } from "../core/types";
-import type { NetworkMessage, ChatMessage } from "./protocol";
+import type { NetworkMessage, ChatMessage, MessageType } from "./protocol";
 
 export class PeerManager {
   public peer: Peer | null = null;
@@ -13,6 +13,7 @@ export class PeerManager {
   // Callbacks
   public onStateReceived: ((state: GameState) => void) | null = null;
   public onChatReceived: ((msg: ChatMessage) => void) | null = null;
+  public onAudioReceived: ((sfx: string) => void) | null = null;
   public onPeerStatusChange: ((peerId: string, status: 'CONNECTED' | 'DISCONNECTED') => void) | null = null;
   public hostActionHandler: ((peerId: string, actionMsg: NetworkMessage) => void) | null = null;
 
@@ -89,6 +90,12 @@ export class PeerManager {
           if (this.onChatReceived) {
             this.onChatReceived(msg as ChatMessage);
           }
+        } else if (msg.type === 'AUDIO_EVENT') {
+          // Re-broadcast audio events to all clients and play locally.
+          this.broadcast(msg);
+          if (this.onAudioReceived && msg.sfx) {
+            this.onAudioReceived(msg.sfx);
+          }
         } else {
           if (this.hostActionHandler) {
             this.hostActionHandler(conn.peer, msg);
@@ -120,6 +127,11 @@ export class PeerManager {
               this.onChatReceived(msg as ChatMessage);
             }
             break;
+          case 'AUDIO_EVENT':
+            if (this.onAudioReceived && msg.sfx) {
+              this.onAudioReceived(msg.sfx);
+            }
+            break;
         }
       }
     });
@@ -146,6 +158,23 @@ export class PeerManager {
         conn.send(message);
       }
     });
+  }
+
+  public sendAudio(sfx: string): void {
+    const audioMsg = { type: 'AUDIO_EVENT' as MessageType, sfx };
+    if (this.isHost) {
+      this.broadcast(audioMsg);
+      if (this.onAudioReceived) {
+        this.onAudioReceived(sfx);
+      }
+    } else {
+      if (this.hostPeerId) {
+        const conn = this.connections.get(this.hostPeerId);
+        if (conn && conn.open) {
+          conn.send(audioMsg);
+        }
+      }
+    }
   }
 
   public sendChat(senderName: string, text: string): void {

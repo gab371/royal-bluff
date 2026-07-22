@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { PeerManager } from "../network/peerManager";
 import type { GameState } from "../core/types";
 import type { ChatMessage } from "../network/protocol";
+import { soundManager } from "../core/soundFX";
 
 interface UsePeerOptions {
   externalPeerManager?: any;
@@ -32,6 +33,17 @@ export function usePeer(options?: UsePeerOptions) {
 
     peerManager.onChatReceived = (msg: ChatMessage) => {
       setChatMessages((prev) => [...prev, msg]);
+      soundManager.playPing();
+    };
+
+    peerManager.onAudioReceived = (sfx: string) => {
+      if (sfx === 'coin') soundManager.playCoin();
+      if (sfx === 'card') soundManager.playCard();
+      if (sfx === 'victory') soundManager.playVictory();
+      if (sfx === 'defeat') soundManager.playDefeat();
+      if (sfx === 'sword') soundManager.playSword();
+      if (sfx === 'click') soundManager.playClick();
+      if (sfx === 'ping') soundManager.playPing();
     };
 
     peerManager.onPeerStatusChange = (peerId: string, peerStatus: 'CONNECTED' | 'DISCONNECTED') => {
@@ -45,6 +57,7 @@ export function usePeer(options?: UsePeerOptions) {
     return () => {
       peerManager.onStateReceived = null;
       peerManager.onChatReceived = null;
+      peerManager.onAudioReceived = null;
       peerManager.onPeerStatusChange = null;
     };
   }, [peerManager]);
@@ -91,6 +104,10 @@ export function usePeer(options?: UsePeerOptions) {
     peerManager.sendChat(senderName, text);
   }, [peerManager]);
 
+  const playSfx = useCallback((sfxName: string) => {
+    peerManager.sendAudio(sfxName);
+  }, [peerManager]);
+
   const disconnect = useCallback(() => {
     peerManager.disconnect();
     setMyPeerId(null);
@@ -115,6 +132,7 @@ export function usePeer(options?: UsePeerOptions) {
     joinGame,
     sendAction,
     sendChat,
+    playSfx,
     disconnect,
     peerManager: peerManager as PeerManager,
   };
