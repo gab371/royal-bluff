@@ -6,8 +6,12 @@ import type { NetworkMessage } from "../network/protocol";
 import type { GameState, ActionType, Character } from "../core/types";
 import { logMessage } from "../core/challengeEngine";
 
-export function useGame() {
-  const p2p = usePeer();
+interface UseGameOptions {
+  externalPeerManager?: any;
+}
+
+export function useGame(options?: UseGameOptions) {
+  const p2p = usePeer(options);
   const {
     isHost,
     myPeerId,
