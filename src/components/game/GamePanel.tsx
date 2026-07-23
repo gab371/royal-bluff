@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { GameState, Character, ActionType, GameConfig } from "../../core/types";
 import { Coins, Shield, Swords, RefreshCw, Eye } from "lucide-react";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
@@ -58,6 +58,60 @@ export function GamePanel({
 
   const [selectedTarget, setSelectedTarget] = useState<string>("");
   const [selectedExchange, setSelectedExchange] = useState<string[]>([]);
+
+  // Tracks whether the local player has already submitted their deliberation
+  // decision (challenge / block / block-challenge) for the current window.
+  // Gives immediate UI feedback while the host collects the other players'
+  // decisions, instead of leaving the buttons looking unresponsive.
+  const [localDecisionMade, setLocalDecisionMade] = useState(false);
+
+  const deliberationKey = `${phase}:${pendingAction?.playerUid ?? ""}:${pendingAction?.action ?? ""}:${pendingBlock?.playerUid ?? ""}:${pendingBlock?.character ?? ""}`;
+  useEffect(() => {
+    setLocalDecisionMade(false);
+  }, [deliberationKey]);
+
+  const onChallengeDecision = (challenge: boolean) => {
+    setLocalDecisionMade(true);
+    challengeDecision(challenge);
+  };
+  const onBlockDecision = (blockCharacter: Character | null) => {
+    setLocalDecisionMade(true);
+    blockDecision(blockCharacter);
+  };
+  const onBlockChallengeDecision = (challenge: boolean) => {
+    setLocalDecisionMade(true);
+    blockChallengeDecision(challenge);
+  };
+
+  // Eligible comploteurs + response counts for the waiting hint. The engine
+  // tracks who has passed in pendingAction/pendingBlock; we add the local
+  // player immediately so the count reflects their just-registered decision.
+  const comploteurs = pendingAction
+    ? players.filter((p) => !p.isEliminated && p.id !== pendingAction.playerUid)
+    : [];
+  const challengeResponded = new Set<string>([
+    ...(pendingAction?.challengePassedUids ?? []),
+    ...(localDecisionMade ? [myPeerId] : []),
+  ]).size;
+  const blockEligible = pendingAction
+    ? players.filter(
+        (p) =>
+          !p.isEliminated &&
+          p.id !== pendingAction.playerUid &&
+          (p.id === pendingAction.targetUid || pendingAction.action === "AIDE_EXTERIEURE"),
+      )
+    : [];
+  const blockResponded = new Set<string>([
+    ...(pendingAction?.blockPassedUids ?? []),
+    ...(localDecisionMade ? [myPeerId] : []),
+  ]).size;
+  const blockChallengeComploteurs = pendingBlock
+    ? players.filter((p) => !p.isEliminated && p.id !== pendingBlock.playerUid)
+    : [];
+  const blockChallengeResponded = new Set<string>([
+    ...(pendingBlock?.challengePassedUids ?? []),
+    ...(localDecisionMade ? [myPeerId] : []),
+  ]).size;
 
   if (!localPlayer) return null;
 
@@ -332,26 +386,35 @@ export function GamePanel({
           {/* 2. Challenge Window Decisions */}
           {phase === 'CHALLENGE_WINDOW' && pendingAction && pendingAction.playerUid !== myPeerId && !localPlayer.isEliminated && (
             <div className="space-y-4">
-              <p className="text-sm text-zinc-300">
-                <span className="font-bold text-amber-400">
-                  {players.find(p => p.id === pendingAction.playerUid)?.name}
-                </span>{" "}
-                déclare l'action <span className="text-yellow-400 font-bold">{pendingAction.action}</span>.
-              </p>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => challengeDecision(true)}
-                  className="flex-1 py-3 px-4 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-2xl text-xs shadow-md"
-                >
-                  Contester (Bluff !)
-                </button>
-                <button
-                  onClick={() => challengeDecision(false)}
-                  className="flex-1 py-3 px-4 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-bold rounded-2xl text-xs"
-                >
-                  Laisser passer
-                </button>
-              </div>
+              {localDecisionMade ? (
+                <div className="text-xs text-zinc-400 italic text-center py-3 flex items-center justify-center gap-2">
+                  <span className="text-emerald-400 font-bold">✓</span> Décision enregistrée — en attente des autres comploteurs
+                  {" "}({challengeResponded}/{comploteurs.length})...
+                </div>
+              ) : (
+                <>
+                  <p className="text-sm text-zinc-300">
+                    <span className="font-bold text-amber-400">
+                      {players.find(p => p.id === pendingAction.playerUid)?.name}
+                    </span>{" "}
+                    déclare l'action <span className="text-yellow-400 font-bold">{pendingAction.action}</span>.
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => onChallengeDecision(true)}
+                      className="flex-1 py-3 px-4 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-2xl text-xs shadow-md"
+                    >
+                      Contester (Bluff !)
+                    </button>
+                    <button
+                      onClick={() => onChallengeDecision(false)}
+                      className="flex-1 py-3 px-4 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-bold rounded-2xl text-xs"
+                    >
+                      Laisser passer
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           )}
 
@@ -361,6 +424,15 @@ export function GamePanel({
               const isTarget = pendingAction.targetUid === myPeerId;
               const isForeignAid = pendingAction.action === 'AIDE_EXTERIEURE';
               if (!isTarget && !isForeignAid) return null;
+
+              if (localDecisionMade) {
+                return (
+                  <div className="text-xs text-zinc-400 italic text-center py-3 flex items-center justify-center gap-2">
+                    <span className="text-emerald-400 font-bold">✓</span> Décision enregistrée — en attente des autres comploteurs
+                    {" "}({blockResponded}/{blockEligible.length})...
+                  </div>
+                );
+              }
 
               let blockOptions: Character[] = getBlockOptions(deckId, pendingAction.action);
 
@@ -377,14 +449,14 @@ export function GamePanel({
                     {blockOptions.map(char => (
                       <button
                         key={char}
-                        onClick={() => blockDecision(char)}
+                        onClick={() => onBlockDecision(char)}
                         className="flex-1 py-3 px-4 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-2xl text-xs shadow-md"
                       >
                         Bloquer avec : {char}
                       </button>
                     ))}
                     <button
-                      onClick={() => blockDecision(null)}
+                      onClick={() => onBlockDecision(null)}
                       className="flex-1 py-3 px-4 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-bold rounded-2xl text-xs"
                     >
                       Ne pas bloquer
@@ -398,26 +470,35 @@ export function GamePanel({
           {/* 4. Challenge Block Window Decisions */}
           {phase === 'CHALLENGE_BLOCK_WINDOW' && pendingBlock && pendingBlock.playerUid !== myPeerId && !localPlayer.isEliminated && (
             <div className="space-y-4">
-              <p className="text-sm text-zinc-300">
-                <span className="font-bold text-amber-400">
-                  {players.find(p => p.id === pendingBlock.playerUid)?.name}
-                </span>{" "}
-                bloque avec la carte <span className="text-blue-400 font-bold">{pendingBlock.character}</span>.
-              </p>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => blockChallengeDecision(true)}
-                  className="flex-1 py-3 px-4 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-2xl text-xs shadow-md"
-                >
-                  Contester le Blocage (Bluff !)
-                </button>
-                <button
-                  onClick={() => blockChallengeDecision(false)}
-                  className="flex-1 py-3 px-4 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-bold rounded-2xl text-xs"
-                >
-                  Accepter le blocage
-                </button>
-              </div>
+              {localDecisionMade ? (
+                <div className="text-xs text-zinc-400 italic text-center py-3 flex items-center justify-center gap-2">
+                  <span className="text-emerald-400 font-bold">✓</span> Décision enregistrée — en attente des autres comploteurs
+                  {" "}({blockChallengeResponded}/{blockChallengeComploteurs.length})...
+                </div>
+              ) : (
+                <>
+                  <p className="text-sm text-zinc-300">
+                    <span className="font-bold text-amber-400">
+                      {players.find(p => p.id === pendingBlock.playerUid)?.name}
+                    </span>{" "}
+                    bloque avec la carte <span className="text-blue-400 font-bold">{pendingBlock.character}</span>.
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => onBlockChallengeDecision(true)}
+                      className="flex-1 py-3 px-4 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-2xl text-xs shadow-md"
+                    >
+                      Contester le Blocage (Bluff !)
+                    </button>
+                    <button
+                      onClick={() => onBlockChallengeDecision(false)}
+                      className="flex-1 py-3 px-4 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-bold rounded-2xl text-xs"
+                    >
+                      Accepter le blocage
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           )}
 
