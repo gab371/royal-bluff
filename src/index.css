@@ -1,4 +1,8 @@
 @import "@fontsource-variable/geist";
+/* Game fonts: declared here (not only in index.html) so they travel with the
+   built `style.css` and load correctly when the game is embedded in the P2Play Hub,
+   which only injects `style.css` + `index.js` (not the game's `index.html`). */
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;0,800;0,900;1,400&family=Raleway:wght@300;400;500;600;700;800&display=swap');
 
 @tailwind base;
 @tailwind components;

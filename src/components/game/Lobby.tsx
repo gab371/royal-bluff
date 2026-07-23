@@ -116,7 +116,7 @@ export function Lobby({
       <div className="w-full max-w-2xl mx-auto p-6 bg-zinc-900/60 backdrop-blur-xl border border-zinc-800 rounded-3xl shadow-2xl relative overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-3 mb-2">
           <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-amber-400 to-yellow-600 bg-clip-text text-transparent">
+            <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-amber-400 to-amber-300 bg-clip-text text-transparent">
               Salon Royal : {hostPeerId}
             </h1>
             <button
@@ -271,7 +271,7 @@ export function Lobby({
     <div className="max-w-md mx-auto p-8 bg-zinc-900/80 backdrop-blur-xl border border-zinc-800 rounded-3xl shadow-2xl relative">
       <div className="text-center mb-8">
         <span className="text-5xl inline-block mb-3 animate-bounce">👑</span>
-        <h1 className="text-4xl font-black bg-gradient-to-r from-amber-400 to-yellow-600 bg-clip-text text-transparent">
+        <h1 className="text-4xl font-black bg-gradient-to-r from-amber-400 to-amber-300 bg-clip-text text-transparent whitespace-nowrap">
           ROYAL BLUFF
         </h1>
         <p className="text-zinc-400 text-sm mt-1">Bluff, Trahison et Influence en Peer-to-Peer</p>

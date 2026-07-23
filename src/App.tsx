@@ -95,7 +95,7 @@ export default function App({ isEmbedded = false, externalPeerManager, playerNam
       <header className="max-w-7xl mx-auto w-full flex items-center justify-between mb-8 pb-4 border-b border-zinc-900">
         <div className="flex items-center gap-2">
           <Swords className="w-6 h-6 text-amber-500" />
-          <span className="text-xl font-black bg-gradient-to-r from-amber-400 to-yellow-600 bg-clip-text text-transparent tracking-tight">
+          <span className="text-xl font-black bg-gradient-to-r from-amber-400 to-amber-300 bg-clip-text text-transparent tracking-tight whitespace-nowrap shrink-0">
             ROYAL BLUFF
           </span>
         </div>
