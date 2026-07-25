@@ -85,3 +85,31 @@ export function sanitizeGameState(state: GameState, targetPlayerId: string): Gam
     players: sanitizedPlayers,
   };
 }
+
+/**
+ * Sanitizes the game state for a spectator.
+ * Spectators never see any unrevealed cards (everyone is masked), the deck,
+ * exchange cards, or inquisition reveals.
+ */
+export function sanitizeGameStateForSpectator(state: GameState): GameState {
+  const sanitizedPlayers = state.players.map((player): Player => ({
+    ...player,
+    cards: player.cards.map(c => {
+      if (c.isRevealed) return { ...c };
+      return {
+        id: c.id,
+        character: 'Comtesse' as Character,
+        isRevealed: false,
+        isMasked: true,
+      } as Card & { isMasked?: boolean };
+    }),
+  }));
+
+  return {
+    ...state,
+    deck: [],
+    exchangeCards: [],
+    inquisitionReveal: null,
+    players: sanitizedPlayers,
+  };
+}

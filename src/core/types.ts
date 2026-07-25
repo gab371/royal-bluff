@@ -6,11 +6,14 @@ export interface Card {
   isRevealed: boolean;
 }
 
+export type PlayerRole = 'player' | 'spectator';
+
 export interface Player {
   id: string;
   name: string;
   avatar: string;
   isHost: boolean;
+  role: PlayerRole;
   isReady: boolean;
   coins: number;
   cards: Card[];
@@ -95,4 +98,6 @@ export interface GameState {
   config: GameConfig;
   winnerId: string | null;
   logs: GameLog[];
+  spectators: Player[];
+  spectatorLocks: { [peerId: string]: boolean };
 }

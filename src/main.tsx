@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client'
 import App from './App.tsx'
 import './index.css'
 
-export function mount(element: HTMLElement, options: { peerId: string; onExit?: () => void; externalPeerManager?: any; playerName?: string; playerAvatar?: string }) {
+export function mount(element: HTMLElement, options: { peerId: string; onExit?: () => void; externalPeerManager?: any; playerName?: string; playerAvatar?: string; isHost?: boolean; lateJoin?: boolean; gameConfig?: any; hubPhase?: string }) {
   const styleId = 'game-style-royal';
   if (!document.getElementById(styleId)) {
     const link = document.createElement('link');
@@ -22,6 +22,10 @@ export function mount(element: HTMLElement, options: { peerId: string; onExit?: 
         onExit={options.onExit}
         playerName={options.playerName}
         playerAvatar={options.playerAvatar}
+        isHost={options.isHost}
+        lateJoin={options.lateJoin}
+        gameConfig={options.gameConfig}
+        hubPhase={options.hubPhase}
       />
     </StrictMode>
   );
@@ -32,7 +36,7 @@ export function mount(element: HTMLElement, options: { peerId: string; onExit?: 
 (window as any).mountRoyal = mount;
 
 const rootEl = document.getElementById('root');
-if (rootEl && rootEl.children.length === 0) {
+if (import.meta.env.MODE !== 'lib' && rootEl && rootEl.children.length === 0) {
   createRoot(rootEl).render(
     <StrictMode>
       <App />
