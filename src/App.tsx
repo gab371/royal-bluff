@@ -1,13 +1,13 @@
 import { useState } from "react";
 import type { PeerManagerLike } from "p2play-core";
+import { TextChatPanel } from "p2play-core/chat";
 import { copyRoomUrlToClipboard } from "p2play-core/url";
 import { useGame } from "./hooks/useGame";
 import { Lobby } from "./components/game/Lobby";
 import { GamePanel } from "./components/game/GamePanel";
 import { SpectatorView } from "./components/game/SpectatorView";
 import { LogConsole } from "./components/game/LogConsole";
-import { Swords, MessageSquare, Send, FileText, X } from "lucide-react";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { Swords, FileText, X } from "lucide-react";
 import { SoundToggle } from "./components/ui/SoundToggle";
 
 interface AppProps {
@@ -24,7 +24,6 @@ interface AppProps {
 
 export default function App({ isEmbedded = false, externalPeerManager, playerName, playerAvatar, isHost, lateJoin, gameConfig, hubPhase, onExit }: AppProps) {
   const game = useGame({ externalPeerManager, isEmbedded, playerName, playerAvatar, isHost, lateJoin, gameConfig, hubPhase });
-  const [chatInput, setChatInput] = useState("");
   const [copied, setCopied] = useState(false);
   const [showRules, setShowRules] = useState(false);
 
@@ -62,13 +61,6 @@ export default function App({ isEmbedded = false, externalPeerManager, playerNam
         }
       });
     }
-  };
-
-  const handleSendChat = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!chatInput.trim()) return;
-    sendChatMessage(chatInput.trim());
-    setChatInput("");
   };
 
   const showLobby = !gameState || gameState.phase === 'LOBBY';
@@ -173,45 +165,14 @@ export default function App({ isEmbedded = false, externalPeerManager, playerNam
               </div>
 
               {/* Chat Panel */}
-              <div className="bg-zinc-900/60 backdrop-blur-md border border-zinc-800 rounded-3xl p-5 shadow-xl flex flex-col h-[280px]">
-                <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-3 flex items-center gap-1.5">
-                  <MessageSquare className="w-3.5 h-3.5 text-zinc-500" />
-                  Salon de Messagerie
-                </h3>
-                <ScrollArea className="flex-1 mb-3 pr-1.5">
-                  <div className="space-y-2">
-                    {chatMessages.map((msg, index) => (
-                      <div key={index} className="text-xs">
-                        <div className="flex items-center gap-1.5 mb-0.5">
-                          <span className="font-bold text-zinc-300">{msg.sender}</span>
-                          <span className="text-[9px] text-zinc-650">{msg.time}</span>
-                        </div>
-                        <p className="text-zinc-400 bg-zinc-950/40 p-2 rounded-xl border border-zinc-950 leading-relaxed break-all">
-                          {msg.text}
-                        </p>
-                      </div>
-                    ))}
-                    {chatMessages.length === 0 && (
-                      <div className="text-zinc-650 text-center py-8">Chuchotez vos intrigues ici...</div>
-                    )}
-                  </div>
-                </ScrollArea>
-                <form onSubmit={handleSendChat} className="flex gap-2">
-                  <input
-                    type="text"
-                    placeholder="Écrivez un message..."
-                    value={chatInput}
-                    onChange={(e) => setChatInput(e.target.value)}
-                    className="flex-1 bg-zinc-950 border border-zinc-850 px-3 py-2 text-xs rounded-2xl outline-none focus:border-amber-500 text-zinc-150"
-                  />
-                  <button
-                    type="submit"
-                    className="p-2 bg-amber-500 hover:bg-amber-400 text-zinc-950 rounded-2xl transition-all shadow-md shadow-amber-500/10"
-                  >
-                    <Send className="w-3.5 h-3.5" />
-                  </button>
-                </form>
-              </div>
+              <TextChatPanel
+                messages={chatMessages}
+                onSend={sendChatMessage}
+                title="Salon de Messagerie"
+                placeholder="Chuchotez vos intrigues ici..."
+                emptyLabel="Chuchotez vos intrigues ici..."
+                className="bg-zinc-900/60 backdrop-blur-md border border-zinc-800 rounded-3xl p-5 shadow-xl flex flex-col h-[280px] text-zinc-100 text-xs"
+              />
             </div>
           </div>
         )}
