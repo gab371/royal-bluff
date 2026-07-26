@@ -1,0 +1,9 @@
+{
+  "key": "royal",
+  "name": "Royal Bluff (Coup)",
+  "emoji": "👑",
+  "desc": "Influence & Rôles cachés.",
+  "hasPreConfig": true,
+  "avatars": ["👑", "🏰", "🗡️", "⚜️", "🪙", "🛡️", "🦁", "🦅"],
+  "shellBackground": "radial-gradient(circle at center, #1b160a 0%, #09090b 100%)"
+}
