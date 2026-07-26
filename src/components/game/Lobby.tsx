@@ -1,8 +1,10 @@
 import { useState } from "react";
+import { copyRoomUrlToClipboard } from "p2play-core/url";
 import { DECKS } from "../../core/decks";
 import type { DeckId } from "../../core/decks";
 import type { GameConfig, Player } from "../../core/types";
 import { SpectatorRolePanel } from "./SpectatorRolePanel";
+import { LobbyHome } from "./LobbyHome";
 
 interface LobbyProps {
   myPeerId: string | null;
@@ -24,8 +26,6 @@ interface LobbyProps {
   onChangeConfig?: (partial: Partial<GameConfig>) => void;
 }
 
-const AVATARS = ["👑", "🏰", "🗡️", "⚜️", "🪙", "🛡️", "🦁", "🦅"];
-
 export function Lobby({
   myPeerId,
   hostPeerId,
@@ -45,10 +45,6 @@ export function Lobby({
   config,
   onChangeConfig,
 }: LobbyProps) {
-  const [name, setName] = useState("");
-  const [avatar, setAvatar] = useState("👑");
-  const [roomToJoin, setRoomToJoin] = useState("");
-  const [loading, setLoading] = useState(false);
   const [localReady, setLocalReady] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -57,59 +53,13 @@ export function Lobby({
 
   const handleCopy = () => {
     if (hostPeerId) {
-      if (navigator.clipboard && window.isSecureContext) {
-        navigator.clipboard.writeText(hostPeerId)
-          .then(() => {
-            setCopied(true);
-            setTimeout(() => setCopied(false), 2000);
-          })
-          .catch(() => {
-            fallbackCopy(hostPeerId);
-          });
-      } else {
-        fallbackCopy(hostPeerId);
-      }
+      copyRoomUrlToClipboard(hostPeerId).then((success) => {
+        if (success) {
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2000);
+        }
+      });
     }
-  };
-
-  const fallbackCopy = (text: string) => {
-    const textArea = document.createElement("textarea");
-    textArea.value = text;
-    textArea.style.position = "fixed";
-    textArea.style.opacity = "0";
-    document.body.appendChild(textArea);
-    textArea.focus();
-    textArea.select();
-    try {
-      document.execCommand("copy");
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
-      console.error("Fallback copy failed", err);
-    }
-    document.body.removeChild(textArea);
-  };
-
-  const handleHost = async () => {
-    if (!name.trim()) return;
-    setLoading(true);
-    try {
-      await hostRoom(name.trim(), avatar);
-    } catch (e) {
-      console.error(e);
-    }
-    setLoading(false);
-  };
-
-  const handleJoin = async () => {
-    if (!name.trim() || !roomToJoin.trim()) return;
-    setLoading(true);
-    try {
-      await joinRoom(name.trim(), avatar, roomToJoin.trim().toUpperCase());
-    } catch (e) {
-      console.error(e);
-    }
-    setLoading(false);
   };
 
   const handleToggleReady = () => {
@@ -132,9 +82,9 @@ export function Lobby({
               id="lobby-copy-btn"
               onClick={handleCopy}
               className="px-2.5 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-xl text-xs font-bold transition-all flex items-center gap-1 border border-zinc-700"
-              title="Copier le code"
+              title="Copier le lien d'invitation"
             >
-              {copied ? "Copié !" : "Copier"}
+              {copied ? "Lien copié !" : "🔗 Copier le lien"}
             </button>
           </div>
           <span className="px-3 py-1 bg-zinc-800 border border-zinc-700 rounded-full text-xs text-zinc-400 font-mono">
@@ -287,83 +237,11 @@ export function Lobby({
   }
 
   return (
-    <div className="max-w-md mx-auto p-8 bg-zinc-900/80 backdrop-blur-xl border border-zinc-800 rounded-3xl shadow-2xl relative">
-      <div className="text-center mb-8">
-        <span className="text-5xl inline-block mb-3 animate-bounce">👑</span>
-        <h1 className="text-4xl font-black bg-gradient-to-r from-amber-400 to-amber-300 bg-clip-text text-transparent whitespace-nowrap">
-          ROYAL BLUFF
-        </h1>
-        <p className="text-zinc-400 text-sm mt-1">Bluff, Trahison et Influence en Peer-to-Peer</p>
-      </div>
-
-      <div className="space-y-5">
-        <div>
-          <label className="block text-xs font-bold uppercase tracking-wider text-zinc-400 mb-2">Pseudonyme</label>
-          <input
-            type="text"
-            placeholder="Entrez votre nom..."
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            disabled={loading}
-            maxLength={14}
-            className="w-full px-4 py-3 rounded-2xl bg-zinc-950 border border-zinc-800 focus:border-amber-500 text-zinc-150 outline-none transition-all disabled:opacity-50"
-          />
-        </div>
-
-        <div>
-          <label className="block text-xs font-bold uppercase tracking-wider text-zinc-400 mb-2">Choisir un Insigne</label>
-          <div className="grid grid-cols-8 gap-2 bg-zinc-950 p-2.5 rounded-2xl border border-zinc-800/60">
-            {AVATARS.map((av) => (
-              <button
-                key={av}
-                onClick={() => setAvatar(av)}
-                disabled={loading}
-                className={`text-2xl p-1.5 rounded-xl transition-all flex items-center justify-center aspect-square ${
-                  avatar === av ? "bg-amber-500/20 border border-amber-500 scale-110" : "hover:bg-zinc-850"
-                }`}
-              >
-                {av}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {error && <div className="text-rose-500 text-sm p-3 rounded-xl bg-rose-500/10 border border-rose-500/20">{error}</div>}
-
-        <div className="flex flex-col gap-3 pt-4 border-t border-zinc-800/60">
-          <button
-            onClick={handleHost}
-            disabled={!name.trim() || loading}
-            className="w-full py-3.5 px-6 rounded-2xl bg-zinc-100 hover:bg-white text-zinc-950 font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-white/5"
-          >
-            {loading ? "Création..." : "Créer une Table"}
-          </button>
-
-          <div className="relative flex py-2 items-center">
-            <div className="flex-grow border-t border-zinc-800/60"></div>
-            <span className="flex-shrink mx-4 text-zinc-500 text-xs font-bold uppercase tracking-widest">OU</span>
-            <div className="flex-grow border-t border-zinc-800/60"></div>
-          </div>
-
-          <div className="flex gap-2">
-            <input
-              type="text"
-              placeholder="CODE"
-              value={roomToJoin}
-              onChange={(e) => setRoomToJoin(e.target.value.toUpperCase())}
-              disabled={loading}
-              className="w-1/3 px-4 py-3 rounded-2xl bg-zinc-950 border border-zinc-800 focus:border-amber-500 text-zinc-150 text-center outline-none transition-all font-mono tracking-wider"
-            />
-            <button
-              onClick={handleJoin}
-              disabled={!name.trim() || !roomToJoin.trim() || loading}
-              className="flex-grow py-3.5 px-6 rounded-2xl bg-gradient-to-r from-amber-400 to-yellow-600 hover:from-amber-300 hover:to-yellow-500 text-zinc-950 font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-amber-500/15"
-            >
-              Rejoindre
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+    <LobbyHome
+      status={status}
+      error={error}
+      hostRoom={hostRoom}
+      joinRoom={joinRoom}
+    />
   );
 }

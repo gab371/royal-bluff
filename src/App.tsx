@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { PeerManagerLike } from "p2play-core";
+import { copyRoomUrlToClipboard } from "p2play-core/url";
 import { useGame } from "./hooks/useGame";
 import { Lobby } from "./components/game/Lobby";
 import { GamePanel } from "./components/game/GamePanel";
@@ -54,37 +55,13 @@ export default function App({ isEmbedded = false, externalPeerManager, playerNam
 
   const handleCopy = () => {
     if (hostPeerId) {
-      if (navigator.clipboard && window.isSecureContext) {
-        navigator.clipboard.writeText(hostPeerId)
-          .then(() => {
-            setCopied(true);
-            setTimeout(() => setCopied(false), 2000);
-          })
-          .catch(() => {
-            fallbackCopy(hostPeerId);
-          });
-      } else {
-        fallbackCopy(hostPeerId);
-      }
+      copyRoomUrlToClipboard(hostPeerId).then((success) => {
+        if (success) {
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2000);
+        }
+      });
     }
-  };
-
-  const fallbackCopy = (text: string) => {
-    const textArea = document.createElement("textarea");
-    textArea.value = text;
-    textArea.style.position = "fixed";
-    textArea.style.opacity = "0";
-    document.body.appendChild(textArea);
-    textArea.focus();
-    textArea.select();
-    try {
-      document.execCommand("copy");
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
-      console.error("Fallback copy failed", err);
-    }
-    document.body.removeChild(textArea);
   };
 
   const handleSendChat = (e: React.FormEvent) => {
@@ -126,8 +103,9 @@ export default function App({ isEmbedded = false, externalPeerManager, playerNam
               <button
                 onClick={handleCopy}
                 className="text-xs px-2.5 py-1.5 bg-zinc-850 hover:bg-zinc-800 text-zinc-300 font-bold rounded-xl transition-all"
+                title="Copier le lien d'invitation"
               >
-                {copied ? "Copié !" : "Copier le code"}
+                {copied ? "Lien copié !" : "🔗 Copier le lien"}
               </button>
               <button
                 onClick={isEmbedded && onExit && gameIsHost ? onExit : disconnect}
@@ -241,7 +219,7 @@ export default function App({ isEmbedded = false, externalPeerManager, playerNam
 
       <footer className="max-w-7xl mx-auto w-full text-center text-[10px] text-zinc-650 py-6 px-4 border-t border-zinc-900 flex justify-between items-center mt-8">
         <div>
-          Royal Bluff (Coup) - Réseau Privé Peer-to-Peer - Version v0.1.0
+          Royal Bluff (Coup) - Réseau Privé Peer-to-Peer - Version v0.3.0
         </div>
         <a
           href="https://github.com/gab371/royal-bluff"
