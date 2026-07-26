@@ -17,11 +17,6 @@ export default defineConfig(({ mode }) => {
   return {
     base: './',
     plugins: [react()],
-    // Local `file:../p2play-core` must not be frozen in the dep optimizer cache,
-    // or room-URL hash fixes never reach the browser until a full Vite restart.
-    optimizeDeps: {
-      exclude: ["p2play-core"],
-    },
     resolve: {
       dedupe: ["react", "react-dom"],
       alias: {
