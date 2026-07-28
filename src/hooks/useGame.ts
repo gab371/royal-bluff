@@ -1,4 +1,9 @@
 import { useEffect, useRef, useState, useCallback } from "react";
+import {
+  attachPresenceHandlers,
+  createSeatEngine,
+  handleJoinGameSeat,
+} from "p2play-core/presence";
 import { usePeer } from "./usePeer";
 import { RoyalBluffEngine } from "../core/gameEngine";
 import { sanitizeGameState, sanitizeGameStateForSpectator } from "../network/protocol";
@@ -141,45 +146,70 @@ export function useGame(options?: UseGameOptions) {
       }, 0);
     }
 
-    peerManager.hostActionHandler = (_senderPeerId, actionMsg) => {
-      const msg = actionMsg as NetworkMessage;
-      if (msg.type === 'ACTION') {
+    const getSeatEngine = () =>
+      createSeatEngine({
+        getPhase: () => engine.state.phase,
+        getPlayers: () => engine.state.players,
+        getSpectators: () => engine.state.spectators,
+        markDisconnected: (id) => engine.markDisconnected(id),
+        isDisconnected: (id) => engine.isDisconnected(id),
+        remapPlayerId: (o, n, p) => engine.remapPlayerId(o, n, p),
+        removePlayer: (id) => engine.removePlayer(id),
+      });
+
+    const presence = attachPresenceHandlers({
+      peerManager,
+      getEngine: getSeatEngine,
+      onBroadcast: () => broadcastSanitizedStates(engine.state),
+      onHostAction: (_senderPeerId, actionMsg) => {
+        const msg = actionMsg as NetworkMessage;
+        if (msg.type !== "ACTION") return;
         const { actionName, playerId, payload } = msg;
 
         switch (actionName) {
-          case 'JOIN_GAME':
-            if (engine.state.phase === 'LOBBY') {
-              engine.addPlayer(playerId, payload.name, payload.avatar, playerId === myPeerId);
-            } else {
-              engine.addSpectator(playerId, payload.name, payload.avatar);
-            }
+          case "JOIN_GAME": {
+            handleJoinGameSeat({
+              engine: getSeatEngine(),
+              playerId,
+              payload: { name: payload?.name, avatar: payload?.avatar },
+              isHostPlayer: playerId === myPeerId,
+              addPlayer: (id, name, avatar, isHost) =>
+                engine.addPlayer(id, name, avatar, isHost),
+              addSpectator: (id, name, avatar) =>
+                engine.addSpectator(id, name, avatar),
+            });
             break;
+          }
 
-          case 'TOGGLE_READY':
+          case "TOGGLE_READY":
             engine.setPlayerReady(playerId, payload.readyStatus);
             const p = engine.state.players.find((pl) => pl.id === playerId);
             if (p) {
-              logMessage(engine.state, `${p.name} est ${payload.readyStatus ? 'prêt !' : 'en attente...'}`, 'info');
+              logMessage(
+                engine.state,
+                `${p.name} est ${payload.readyStatus ? "prêt !" : "en attente..."}`,
+                "info",
+              );
             }
             break;
 
-          case 'START_GAME':
+          case "START_GAME":
             if (playerId === myPeerId) {
               engine.startGame();
-              playSfx('sword');
+              playSfx("sword");
             }
             break;
 
-          case 'CHANGE_CONFIG':
+          case "CHANGE_CONFIG":
             if (playerId === myPeerId) {
               engine.setConfig(payload.config);
             }
             break;
 
-          case 'SET_ROLE': {
+          case "SET_ROLE": {
             const requesterIsHost = playerId === myPeerId;
             const targetId = payload.peerId as string;
-            const nextRole = payload.role as 'player' | 'spectator';
+            const nextRole = payload.role as "player" | "spectator";
             // Host may change anyone; guests may only change themselves.
             if (requesterIsHost || targetId === playerId) {
               engine.setPlayerRole(targetId, nextRole, {
@@ -190,13 +220,13 @@ export function useGame(options?: UseGameOptions) {
             break;
           }
 
-          case 'LOCK_SPECTATOR':
+          case "LOCK_SPECTATOR":
             // Host-only. Lock = force spectator + prevent self-promote to player.
             if (playerId === myPeerId) {
               const targetId = payload.peerId as string;
               const locked = !!payload.locked;
               if (locked) {
-                engine.setPlayerRole(targetId, 'spectator', {
+                engine.setPlayerRole(targetId, "spectator", {
                   requesterPeerId: playerId,
                   requesterIsHost: true,
                 });
@@ -205,56 +235,56 @@ export function useGame(options?: UseGameOptions) {
             }
             break;
 
-          case 'DECLARE_ACTION':
+          case "DECLARE_ACTION":
             engine.executeAction(playerId, payload.action, payload.targetUid);
             // Sound depends on the declared action type.
             switch (payload.action as ActionType) {
-              case 'ASSASSINAT':
-              case 'COUP':
-                playSfx('sword');
+              case "ASSASSINAT":
+              case "COUP":
+                playSfx("sword");
                 break;
-              case 'REVENU':
-              case 'AIDE_EXTERIEURE':
-              case 'TAXE':
-              case 'VOL':
-                playSfx('coin');
+              case "REVENU":
+              case "AIDE_EXTERIEURE":
+              case "TAXE":
+              case "VOL":
+                playSfx("coin");
                 break;
-              case 'ECHANGE':
-              case 'INQUISITION':
-                playSfx('card');
+              case "ECHANGE":
+              case "INQUISITION":
+                playSfx("card");
                 break;
             }
             break;
 
-          case 'CHALLENGE_DECISION':
+          case "CHALLENGE_DECISION":
             engine.submitChallengeDecision(playerId, payload.challenge);
-            if (payload.challenge) playSfx('click');
+            if (payload.challenge) playSfx("click");
             break;
 
-          case 'BLOCK_DECISION':
+          case "BLOCK_DECISION":
             engine.submitBlockDecision(playerId, payload.blockCharacter);
-            if (payload.blockCharacter) playSfx('click');
+            if (payload.blockCharacter) playSfx("click");
             break;
 
-          case 'BLOCK_CHALLENGE_DECISION':
+          case "BLOCK_CHALLENGE_DECISION":
             engine.submitBlockChallengeDecision(playerId, payload.challenge);
-            if (payload.challenge) playSfx('click');
+            if (payload.challenge) playSfx("click");
             break;
 
-          case 'CHOOSE_LOSS':
+          case "CHOOSE_LOSS":
             engine.chooseLoss(playerId, payload.cardId);
-            playSfx('defeat');
+            playSfx("defeat");
             break;
 
-          case 'EXCHANGE_SELECT':
+          case "EXCHANGE_SELECT":
             engine.exchangeSelect(playerId, payload.keptCardIds);
             break;
 
-          case 'INQUISITION_DECIDE':
+          case "INQUISITION_DECIDE":
             engine.inquisitionDecide(playerId, payload.forceSwap);
             break;
 
-          case 'RESET_LOBBY':
+          case "RESET_LOBBY":
             if (playerId === myPeerId) {
               engine.resetToLobby();
             }
@@ -264,27 +294,17 @@ export function useGame(options?: UseGameOptions) {
         broadcastSanitizedStates(engine.state);
 
         // Victory fanfare once when the game ends (broadcast to all peers).
-        if (engine.state.phase === 'GAME_OVER' && !victoryPlayedRef.current) {
+        if (engine.state.phase === "GAME_OVER" && !victoryPlayedRef.current) {
           victoryPlayedRef.current = true;
-          playSfx('victory');
-        } else if (engine.state.phase !== 'GAME_OVER') {
+          playSfx("victory");
+        } else if (engine.state.phase !== "GAME_OVER") {
           victoryPlayedRef.current = false;
         }
-      }
-    };
-
-    peerManager.onPeerStatusChange = (peerId: string, peerStatus: 'CONNECTED' | 'DISCONNECTED') => {
-      if (peerStatus === 'DISCONNECTED') {
-        engine.removePlayer(peerId);
-        broadcastSanitizedStates(engine.state);
-      } else if (peerStatus === 'CONNECTED') {
-        broadcastSanitizedStates(engine.state);
-      }
-    };
+      },
+    });
 
     return () => {
-      peerManager.hostActionHandler = null;
-      peerManager.onPeerStatusChange = null;
+      presence.dispose();
     };
   }, [isHost, myPeerId, peerManager, playSfx, broadcastSanitizedStates]);
 
@@ -325,7 +345,7 @@ export function useGame(options?: UseGameOptions) {
   const hostRoom = useCallback(async (name: string, avatar: string) => {
     setLocalPlayerName(name);
     setLocalPlayerAvatar(avatar);
-    const roomId = await hostGame();
+    const roomId = await hostGame(undefined, { username: name, avatar });
     const engine = new RoyalBluffEngine();
     gameEngineRef.current = engine;
     engine.addPlayer(roomId, name, avatar, true);
@@ -335,11 +355,11 @@ export function useGame(options?: UseGameOptions) {
   const joinRoom = useCallback(async (name: string, avatar: string, roomId: string) => {
     setLocalPlayerName(name);
     setLocalPlayerAvatar(avatar);
-    const id = await joinGame(roomId);
+    const { peerId } = await joinGame(roomId, { username: name, avatar });
     setTimeout(() => {
       peerManager.sendToHost('ACTION', {
         actionName: 'JOIN_GAME',
-        playerId: id,
+        playerId: peerId,
         payload: { name, avatar },
       });
     }, 1000);

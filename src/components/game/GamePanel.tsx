@@ -261,6 +261,7 @@ export function GamePanel({
                       <h4 className="font-bold text-zinc-100 flex items-center gap-1.5">
                         {player.name}
                         {player.id === myPeerId && <span className="text-[10px] text-amber-500 font-normal">(Vous)</span>}
+                        {player.disconnected && <span className="text-[10px] text-red-400 font-normal">⚠ Déconnecté</span>}
                       </h4>
                       <p className="text-[10px] text-zinc-500">
                         {isEliminated ? "Éliminé" : "Au pouvoir"}

@@ -11,6 +11,7 @@ import type {
   GameConfig,
 } from "./types";
 import { canChangeRole, spectatorConfigFromIds } from "p2play-core/spectator";
+import { remapRecordKey } from "p2play-core/presence";
 import {
   getRequiredCharacterForAction,
   isBlockAllowed,
@@ -179,6 +180,63 @@ export class RoyalBluffEngine {
     });
 
     logMessage(this.state, `La partie commence ! Deck : ${deckDef.name}.`, 'system');
+    return true;
+  }
+
+  public markDisconnected(id: string): void {
+    const p = this.state.players.find(p => p.id === id);
+    if (p) {
+      p.disconnected = true;
+      logMessage(this.state, `${p.name} s'est déconnecté (reconnexion possible).`, 'system');
+    }
+  }
+
+  public isDisconnected(id: string): boolean {
+    return !!this.state.players.find(p => p.id === id)?.disconnected;
+  }
+
+  public remapPlayerId(
+    oldId: string,
+    newId: string,
+    profile?: { username?: string; avatar?: string },
+  ): boolean {
+    const p = this.state.players.find(p => p.id === oldId);
+    if (!p) return false;
+    p.id = newId;
+    p.disconnected = false;
+    if (profile?.username) p.name = profile.username;
+    if (profile?.avatar) p.avatar = profile.avatar;
+    if (this.state.winnerId === oldId) this.state.winnerId = newId;
+
+    const remapUid = (uid?: string | null) => (uid === oldId ? newId : uid);
+    if (this.state.pendingAction) {
+      this.state.pendingAction.playerUid = remapUid(this.state.pendingAction.playerUid)!;
+      this.state.pendingAction.targetUid = remapUid(this.state.pendingAction.targetUid) ?? undefined;
+      this.state.pendingAction.challengePassedUids = this.state.pendingAction.challengePassedUids.map(
+        (id) => (id === oldId ? newId : id),
+      );
+      this.state.pendingAction.blockPassedUids = this.state.pendingAction.blockPassedUids.map(
+        (id) => (id === oldId ? newId : id),
+      );
+    }
+    if (this.state.pendingBlock) {
+      this.state.pendingBlock.playerUid = remapUid(this.state.pendingBlock.playerUid)!;
+      this.state.pendingBlock.challengePassedUids = this.state.pendingBlock.challengePassedUids.map(
+        (id) => (id === oldId ? newId : id),
+      );
+    }
+    if (this.state.pendingLoss) {
+      this.state.pendingLoss.playerUid = remapUid(this.state.pendingLoss.playerUid)!;
+    }
+    if (this.state.inquisitionReveal) {
+      this.state.inquisitionReveal.actorUid = remapUid(this.state.inquisitionReveal.actorUid)!;
+      this.state.inquisitionReveal.targetUid = remapUid(this.state.inquisitionReveal.targetUid)!;
+    }
+    remapRecordKey(this.state.spectatorLocks, oldId, newId);
+    const specIdx = this.state.spectators.findIndex(s => s.id === oldId);
+    if (specIdx !== -1) this.state.spectators[specIdx].id = newId;
+
+    logMessage(this.state, `${p.name} s'est reconnecté.`, 'system');
     return true;
   }
 

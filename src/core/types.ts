@@ -18,6 +18,7 @@ export interface Player {
   coins: number;
   cards: Card[];
   isEliminated: boolean;
+  disconnected?: boolean;
 }
 
 export type ActionType =
