@@ -1,14 +1,15 @@
 import { useState } from "react";
 import type { PeerManagerLike } from "p2play-core";
+import { RoomCodeBadge } from "p2play-core";
 import { TextChatPanel } from "p2play-core/chat";
-import { copyRoomUrlToClipboard } from "p2play-core/url";
 import { useGame } from "./hooks/useGame";
 import { Lobby } from "./components/game/Lobby";
 import { GamePanel } from "./components/game/GamePanel";
 import { SpectatorView } from "./components/game/SpectatorView";
 import { LogConsole } from "./components/game/LogConsole";
 import { Swords, FileText, X } from "lucide-react";
-import { SoundToggle } from "./components/ui/SoundToggle";
+import { SoundToggle } from "p2play-core/ui";
+import { soundManager } from "./core/soundFX";
 
 interface AppProps {
   isEmbedded?: boolean;
@@ -24,7 +25,6 @@ interface AppProps {
 
 export default function App({ isEmbedded = false, externalPeerManager, playerName, playerAvatar, isHost, lateJoin, gameConfig, hubPhase, onExit }: AppProps) {
   const game = useGame({ externalPeerManager, isEmbedded, playerName, playerAvatar, isHost, lateJoin, gameConfig, hubPhase });
-  const [copied, setCopied] = useState(false);
   const [showRules, setShowRules] = useState(false);
 
   const {
@@ -52,17 +52,6 @@ export default function App({ isEmbedded = false, externalPeerManager, playerNam
     disconnect,
   } = game;
 
-  const handleCopy = () => {
-    if (hostPeerId) {
-      copyRoomUrlToClipboard(hostPeerId).then((success) => {
-        if (success) {
-          setCopied(true);
-          setTimeout(() => setCopied(false), 2000);
-        }
-      });
-    }
-  };
-
   const showLobby = !gameState || gameState.phase === 'LOBBY';
   const localIsSpectator = !!gameState?.spectators.some((s) => s.id === myPeerId);
 
@@ -85,20 +74,11 @@ export default function App({ isEmbedded = false, externalPeerManager, playerNam
             <span>Règles</span>
           </button>
 
-          <SoundToggle className="bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-zinc-100 border-zinc-800" />
+          <SoundToggle soundManager={soundManager} className="bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-zinc-100 border-zinc-800" />
 
           {gameState && gameState.phase !== 'LOBBY' && (
             <>
-              <span className="text-xs text-zinc-400 font-mono bg-zinc-900 px-3 py-1.5 rounded-full border border-zinc-800">
-                Salon : <span className="text-amber-400 font-bold">{hostPeerId}</span>
-              </span>
-              <button
-                onClick={handleCopy}
-                className="text-xs px-2.5 py-1.5 bg-zinc-850 hover:bg-zinc-800 text-zinc-300 font-bold rounded-xl transition-all"
-                title="Copier le lien d'invitation"
-              >
-                {copied ? "Lien copié !" : "🔗 Copier le lien"}
-              </button>
+              {hostPeerId && <RoomCodeBadge code={hostPeerId} accentClassName="text-amber-400" />}
               <button
                 onClick={isEmbedded && onExit && gameIsHost ? onExit : disconnect}
                 className="text-xs px-2.5 py-1.5 bg-rose-950/20 hover:bg-rose-900/20 text-rose-400 border border-rose-900/30 rounded-xl transition-all"
@@ -171,7 +151,8 @@ export default function App({ isEmbedded = false, externalPeerManager, playerNam
                 title="Salon de Messagerie"
                 placeholder="Chuchotez vos intrigues ici..."
                 emptyLabel="Chuchotez vos intrigues ici..."
-                className="bg-zinc-900/60 backdrop-blur-md border border-zinc-800 rounded-3xl p-5 shadow-xl flex flex-col h-[280px] text-zinc-100 text-xs"
+                className="bg-zinc-900/60 backdrop-blur-md border border-amber-900/40 rounded-3xl p-5 shadow-xl shadow-amber-950/10 flex flex-col h-[280px] text-zinc-100 text-xs"
+                scrollbarAccent="amber"
               />
             </div>
           </div>

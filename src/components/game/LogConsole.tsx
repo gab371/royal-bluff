@@ -11,8 +11,9 @@ export function LogConsole({ logs }: LogConsoleProps) {
       entries={logs}
       title="Parchemin des Récits"
       emptyLabel="L'histoire reste à s'écrire..."
-      className="bg-zinc-900/60 backdrop-blur-md border border-zinc-800 rounded-3xl p-5 shadow-xl flex flex-col h-full text-zinc-100 text-xs"
+      className="bg-zinc-900/60 backdrop-blur-md border border-amber-900/40 rounded-3xl p-5 shadow-xl shadow-amber-950/10 flex flex-col h-full text-zinc-100 text-xs"
       maxHeight="280px"
+      scrollbarAccent="amber"
     />
   );
 }

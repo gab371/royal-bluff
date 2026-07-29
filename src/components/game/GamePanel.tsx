@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import type { GameState, Character, ActionType, GameConfig } from "../../core/types";
 import { Coins, Shield, Swords, RefreshCw, Eye } from "lucide-react";
+import { Badge } from "p2play-core/ui";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import { getBlockOptions } from "../../core/decks";
 import type { DeckId } from "../../core/decks";
@@ -261,7 +262,7 @@ export function GamePanel({
                       <h4 className="font-bold text-zinc-100 flex items-center gap-1.5">
                         {player.name}
                         {player.id === myPeerId && <span className="text-[10px] text-amber-500 font-normal">(Vous)</span>}
-                        {player.disconnected && <span className="text-[10px] text-red-400 font-normal">⚠ Déconnecté</span>}
+                        {player.disconnected && <Badge variant="destructive">Déconnecté</Badge>}
                       </h4>
                       <p className="text-[10px] text-zinc-500">
                         {isEliminated ? "Éliminé" : "Au pouvoir"}
