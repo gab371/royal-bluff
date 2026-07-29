@@ -36,6 +36,7 @@ interface GamePanelProps {
   exchangeSelect: (keptCardIds: string[]) => void;
   inquisitionDecide: (forceSwap: boolean) => void;
   resetLobby: () => void;
+  boardExpanded?: boolean;
 }
 
 export function GamePanel({
@@ -49,6 +50,7 @@ export function GamePanel({
   exchangeSelect,
   inquisitionDecide,
   resetLobby,
+  boardExpanded = false,
 }: GamePanelProps) {
   const { players, activePlayerIndex, phase, pendingAction, pendingBlock, pendingLoss, exchangeCards, inquisitionReveal, config } = gameState;
   const activePlayer = players[activePlayerIndex];
@@ -239,10 +241,16 @@ export function GamePanel({
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      <div className="lg:col-span-2 space-y-6">
+    <div className={boardExpanded ? "space-y-6" : "grid grid-cols-1 lg:grid-cols-3 gap-6"}>
+      <div className={`space-y-6 ${boardExpanded ? "" : "lg:col-span-2"}`}>
         {/* Board grid of all conspirators */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div
+          className={
+            boardExpanded
+              ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
+              : "grid grid-cols-1 md:grid-cols-2 gap-6"
+          }
+        >
           {players.map((player) => {
             const isActive = player.id === activePlayer?.id;
             const isEliminated = player.isEliminated;
@@ -617,11 +625,13 @@ export function GamePanel({
       </div>
 
       {/* Log Narratives sidebar */}
+      {!boardExpanded && (
       <div className="lg:col-span-1">
         <div className="h-[400px] lg:h-[600px]">
           {/* Custom sidebar components or LogConsole could be embedded directly here in App.tsx */}
         </div>
       </div>
+      )}
     </div>
   );
 }

@@ -3,8 +3,10 @@ import type { PeerManagerLike } from "p2play-core";
 import { RoomCodeBadge } from "p2play-core";
 import { TextChatPanel } from "p2play-core/chat";
 import { useGame } from "./hooks/useGame";
+import { useBoardExpand } from "./hooks/useBoardExpand";
 import { Lobby } from "./components/game/Lobby";
 import { GamePanel } from "./components/game/GamePanel";
+import { PhaseStatusBar } from "./components/game/PhaseStatusBar";
 import { SpectatorView } from "./components/game/SpectatorView";
 import { LogConsole } from "./components/game/LogConsole";
 import { Swords, FileText, X } from "lucide-react";
@@ -54,9 +56,19 @@ export default function App({ isEmbedded = false, externalPeerManager, playerNam
 
   const showLobby = !gameState || gameState.phase === 'LOBBY';
   const localIsSpectator = !!gameState?.spectators.some((s) => s.id === myPeerId);
+  const { expanded: boardExpanded, toggle: toggleExpand } = useBoardExpand(
+    showLobby || localIsSpectator,
+  );
 
   return (
-    <div className="min-h-screen py-8 px-4 sm:px-6 lg:px-8 flex flex-col justify-between">
+    <div
+      className={
+        boardExpanded
+          ? "h-screen overflow-hidden flex flex-col relative"
+          : "min-h-screen py-8 px-4 sm:px-6 lg:px-8 flex flex-col justify-between"
+      }
+    >
+      {!boardExpanded && (
       <header className="max-w-7xl mx-auto w-full flex items-center justify-between mb-8 pb-4 border-b border-zinc-900">
         <div className="flex items-center gap-2">
           <Swords className="w-6 h-6 text-amber-500" />
@@ -90,8 +102,15 @@ export default function App({ isEmbedded = false, externalPeerManager, playerNam
           )}
         </div>
       </header>
+      )}
 
-      <main className="flex-1 w-full max-w-7xl mx-auto">
+      <main
+        className={
+          boardExpanded
+            ? "fixed inset-0 z-40 overflow-auto p-4 sm:p-6 bg-[radial-gradient(circle_at_center,#1b160a_0%,#09090b_100%)]"
+            : "flex-1 w-full max-w-7xl mx-auto"
+        }
+      >
         {showLobby ? (
           <div className="flex items-center justify-center min-h-[70vh]">
             <Lobby
@@ -122,8 +141,18 @@ export default function App({ isEmbedded = false, externalPeerManager, playerNam
             />
           </div>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-            <div className="lg:col-span-3 space-y-6">
+          <div className="flex flex-col gap-6">
+            <PhaseStatusBar
+              gameState={gameState!}
+              boardExpanded={boardExpanded}
+              onToggleExpand={toggleExpand}
+            />
+            <div
+              className={`grid grid-cols-1 gap-6 ${
+                boardExpanded ? "xl:grid-cols-5" : "lg:grid-cols-4"
+              }`}
+            >
+            <div className={`space-y-6 ${boardExpanded ? "xl:col-span-4" : "lg:col-span-3"}`}>
               <GamePanel
                 myPeerId={myPeerId!}
                 gameState={gameState}
@@ -135,10 +164,11 @@ export default function App({ isEmbedded = false, externalPeerManager, playerNam
                 exchangeSelect={exchangeSelect}
                 inquisitionDecide={inquisitionDecide}
                 resetLobby={resetLobby}
+                boardExpanded={boardExpanded}
               />
             </div>
 
-            <div className="lg:col-span-1 flex flex-col gap-6">
+            <div className="flex flex-col gap-6">
               {/* Event Logs */}
               <div className="h-[360px] flex flex-col">
                 <LogConsole logs={gameState.logs} />
@@ -156,9 +186,11 @@ export default function App({ isEmbedded = false, externalPeerManager, playerNam
               />
             </div>
           </div>
+          </div>
         )}
       </main>
 
+      {!boardExpanded && (
       <footer className="max-w-7xl mx-auto w-full text-center text-[10px] text-zinc-650 py-6 px-4 border-t border-zinc-900 flex justify-between items-center mt-8">
         <div>
           Royal Bluff (Coup) - Réseau Privé Peer-to-Peer - Version v0.3.0
@@ -184,6 +216,7 @@ export default function App({ isEmbedded = false, externalPeerManager, playerNam
           <span>Dépôt GitHub</span>
         </a>
       </footer>
+      )}
 
       {/* Rules Modal */}
       {showRules && (
