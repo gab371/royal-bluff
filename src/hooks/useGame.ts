@@ -180,6 +180,7 @@ export function useGame(options?: UseGameOptions) {
               engine: getSeatEngine(),
               playerId,
               payload: { name: payload?.name, avatar: payload?.avatar },
+              trustedName: peerManager.getTrustedUsername?.(playerId),
               isHostPlayer: playerId === myPeerId,
               addPlayer: (id, name, avatar, isHost) =>
                 engine.addPlayer(id, name, avatar, isHost),
