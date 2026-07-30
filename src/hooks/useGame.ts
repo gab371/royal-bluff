@@ -58,6 +58,12 @@ export function useGame(options?: UseGameOptions) {
   const broadcastSanitizedStates = useCallback((engineState: GameState, overridePeerId?: string) => {
     const activePeerId = overridePeerId || myPeerId;
     if (!activePeerId) return;
+    for (const p of engineState.players) {
+      peerManager.registerPeerProfile?.(p.id, { username: p.name, avatar: p.avatar });
+    }
+    for (const s of engineState.spectators) {
+      peerManager.registerPeerProfile?.(s.id, { username: s.name, avatar: s.avatar });
+    }
 
     const sent = new Set<string>([activePeerId]);
 
@@ -161,10 +167,12 @@ export function useGame(options?: UseGameOptions) {
       peerManager,
       getEngine: getSeatEngine,
       onBroadcast: () => broadcastSanitizedStates(engine.state),
-      onHostAction: (_senderPeerId, actionMsg) => {
+      onHostAction: (senderPeerId, actionMsg) => {
         const msg = actionMsg as NetworkMessage;
         if (msg.type !== "ACTION") return;
-        const { actionName, playerId, payload } = msg;
+        // Never trust client-supplied playerId — identity is the DataConnection peer.
+        const { actionName, payload } = msg;
+        const playerId = senderPeerId;
 
         switch (actionName) {
           case "JOIN_GAME": {
