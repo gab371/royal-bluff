@@ -92,6 +92,7 @@ export function useGame(options?: UseGameOptions) {
         const clientSanitized = sanitizeGameState(engineState, p.id);
         conn.send({ type: 'STATE_UPDATE', state: clientSanitized });
         sent.add(p.id);
+        sent.add(conn.peer);
       }
     });
 
@@ -102,17 +103,13 @@ export function useGame(options?: UseGameOptions) {
       if (conn && conn.open) {
         conn.send({ type: 'STATE_UPDATE', state: JSON.parse(JSON.stringify(spectatorView)) });
         sent.add(s.id);
+        sent.add(conn.peer);
       }
     });
 
-    // Hub late-join: push a public view to any open peer not yet in the engine
-    // so they are not stuck on an empty lobby before JOIN_GAME lands.
+    // Hub late-join: push a public view to any open peer not yet seated.
     peerManager.connections.forEach((conn, peerId) => {
-      if (!conn.open || sent.has(peerId)) return;
-      const alreadyKnown =
-        engineState.players.some((p) => p.id === peerId || peerId.endsWith(p.id) || p.id.endsWith(peerId)) ||
-        engineState.spectators.some((s) => s.id === peerId || peerId.endsWith(s.id) || s.id.endsWith(peerId));
-      if (alreadyKnown) return;
+      if (!conn.open || sent.has(peerId) || sent.has(conn.peer)) return;
       conn.send({ type: 'STATE_UPDATE', state: JSON.parse(JSON.stringify(spectatorView)) });
     });
   }, [myPeerId, peerManager, p2p.peerManager]);
