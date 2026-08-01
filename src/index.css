@@ -38,9 +38,9 @@
     border-color: hsl(var(--border));
   }
   body {
-    background: radial-gradient(circle at center, #1b160a 0%, #09090b 100%);
+    background: radial-gradient(circle at center, #1a0a10 0%, #09090b 100%);
     color: hsl(var(--foreground));
-    font-family: 'Geist Variable', sans-serif;
+    font-family: "Raleway", "Geist Variable", sans-serif;
   }
 }
 

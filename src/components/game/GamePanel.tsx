@@ -5,6 +5,7 @@ import { Badge } from "p2play-core/ui";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import { getBlockOptions } from "../../core/decks";
 import type { DeckId } from "../../core/decks";
+import { RoleCardFace, type RoleCardVariant } from "./RoleCardFace";
 
 const getCharacterTooltip = (char: Character): string => {
   switch (char) {
@@ -124,67 +125,39 @@ export function GamePanel({
     return (
       <div className="flex gap-4 mt-4 justify-center">
         {player.cards.map((card) => {
-          const isMasked = (card as any).isMasked;
           const displayChar = card.isRevealed ? card.character : (isSelf ? card.character : "🔒");
-          
-          let cardBg = "bg-zinc-800/80 border-zinc-700";
-          if (card.isRevealed) {
-            cardBg = "bg-rose-950/20 border-rose-900/40 text-rose-350 opacity-60";
-          } else if (isSelf) {
-            cardBg = "bg-zinc-800 border-amber-500/40 text-zinc-100 shadow-md shadow-amber-500/5";
-          }
-
-          // Green border on cards that can block the current pending action
           const canBlockCurrent = !card.isRevealed && blockableChars.includes(card.character);
-          if (canBlockCurrent) {
-            cardBg = "bg-emerald-950/40 border-emerald-500 text-emerald-100 shadow-md shadow-emerald-500/20";
-          }
-
-          const canClick = phase === 'CHOOSE_LOSS' && pendingLoss?.playerUid === myPeerId && !card.isRevealed && isSelf;
+          const canClick =
+            phase === "CHOOSE_LOSS" &&
+            pendingLoss?.playerUid === myPeerId &&
+            !card.isRevealed &&
+            isSelf;
           const showTooltip = card.isRevealed || isSelf;
           const showInfoBadge = actionHelper && showTooltip && !card.isRevealed;
 
+          let variant: RoleCardVariant = "secret";
+          if (card.isRevealed) variant = "revealed";
+          else if (canClick) variant = "loss";
+          else if (canBlockCurrent) variant = "blockable";
+          else if (isSelf) variant = "self";
+
           const cardButton = (
-            <button
+            <RoleCardFace
+              character={displayChar}
+              variant={variant}
               disabled={!canClick}
-              onClick={() => chooseLoss(card.id)}
-              className={`relative w-24 h-32 sm:w-28 sm:h-36 rounded-2xl border flex flex-col items-center justify-between p-3 sm:p-4 transition-all ${cardBg} ${
-                canClick
-                  ? "hover:scale-105 border-rose-500 hover:shadow-lg hover:shadow-rose-500/20 cursor-pointer animate-pulse"
-                  : canBlockCurrent
-                    ? "hover:scale-105 cursor-help animate-pulse"
-                    : "cursor-default"
-              }`}
-            >
-              {showInfoBadge && (
-                <span
-                  className="absolute top-1 right-1 w-4 h-4 rounded-full bg-zinc-700/80 text-zinc-200 text-[9px] font-bold flex items-center justify-center"
-                  aria-hidden="true"
-                >
-                  ⓘ
-                </span>
-              )}
-              <span className="text-[10px] uppercase tracking-widest text-zinc-500 font-bold">
-                {card.isRevealed ? "Éliminé" : canBlockCurrent ? "Blocage" : "Influence"}
-              </span>
-              <span className="text-sm sm:text-base font-black tracking-tight text-center break-words max-w-full px-0.5">
-                {displayChar}
-              </span>
-              <span className="text-[9px] text-zinc-655">
-                {card.isRevealed ? "Révélé" : "Secret"}
-              </span>
-            </button>
+              onClick={canClick ? () => chooseLoss(card.id) : undefined}
+              showInfoBadge={!!showInfoBadge}
+            />
           );
 
           return (
             <TooltipProvider key={card.id}>
               <Tooltip delayDuration={300}>
-                <TooltipTrigger asChild>
-                  {cardButton}
-                </TooltipTrigger>
+                <TooltipTrigger asChild>{cardButton}</TooltipTrigger>
                 {showTooltip && (
                   <TooltipContent side="top" className="text-center font-medium">
-                    <p className="font-bold text-amber-400 mb-0.5">{card.character}</p>
+                    <p className="font-bold font-serif text-amber-400 mb-0.5">{card.character}</p>
                     <p className="text-zinc-300">{getCharacterTooltip(card.character)}</p>
                     {canBlockCurrent && (
                       <p className="text-emerald-400 font-bold mt-1">🛡️ Peut bloquer l'action en cours</p>
@@ -532,17 +505,14 @@ export function GamePanel({
                 {[...localPlayer.cards.filter(c => !c.isRevealed).map(c => c.character), ...exchangeCards].map((char, index) => {
                   const isSelected = selectedExchange.includes(char);
                   return (
-                    <button
+                    <RoleCardFace
                       key={index}
+                      character={char}
+                      variant="exchange"
+                      selected={isSelected}
                       onClick={() => toggleExchangeCard(char)}
-                      className={`w-24 h-32 rounded-2xl border flex flex-col items-center justify-center p-3 transition-all ${
-                        isSelected
-                          ? "bg-amber-500/20 border-amber-500 text-amber-400 scale-105 shadow-md shadow-amber-500/10"
-                          : "bg-zinc-800 border-zinc-750 text-zinc-400 hover:bg-zinc-750 hover:text-zinc-200"
-                      }`}
-                    >
-                      <span className="text-base font-bold">{char}</span>
-                    </button>
+                      footer={isSelected ? "Gardée" : "Pioche"}
+                    />
                   );
                 })}
               </div>
